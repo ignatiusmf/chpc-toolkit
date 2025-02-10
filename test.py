@@ -5,6 +5,7 @@ import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
+import math
 
 
 # Define a simple CNN model
@@ -13,26 +14,46 @@ class SimpleCNN(nn.Module):
         super(SimpleCNN, self).__init__()
         self.network = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(16, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
             nn.Flatten(),
-            nn.Linear(16*28*28, 10)
+            nn.Linear(64*7*7, 1000),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(1000,100),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(100,10)
         )
 
     def forward(self, x):
         return self.network(x) 
 
-# Load the MNIST dataset
+device = torch.device("cuda")
+
 transform = transforms.Compose([transforms.ToTensor()])
 trainset = torchvision.datasets.MNIST(root="./data", train=True, transform=transform, download=True)
 trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
+testset = torchvision.datasets.MNIST(root="./data", train=False, transform=transform, download=True)
+testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
+totalbatches = len(trainloader)
 
 # Initialize the model, loss function, and optimizer
-device = torch.device("cuda")
+
 model = SimpleCNN().to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
 
+## THIS IS TO VISUALIZE THE TRAINING DATA
 # dataiter = iter(trainloader)
 # images, labels = next(dataiter)
 # images = images[:10]
@@ -48,10 +69,15 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 
 
-# Training loop
+
+print("Training")
 epochs = 1
-for epoch in range(epochs):  # One epoch for simplicity
+for epoch in range(epochs): 
+    batch = 0 
     for images, labels in trainloader:
+        batch += 1
+        if batch % math.floor((totalbatches / 4)) == 0 :
+            print(f"Epoch {epoch} batch progress: {round(batch*100/totalbatches)}% ")
         images, labels = images.to(device), labels.to(device)
         
         optimizer.zero_grad()
@@ -64,20 +90,12 @@ for epoch in range(epochs):  # One epoch for simplicity
 
 print("Training complete.")
 
-dataiter = iter(trainloader)
-images, labels = next(dataiter)
-images = images[:10]
-labels = labels[:10]
 
 
 
 
 
-# Load the test dataset
-testset = torchvision.datasets.MNIST(root="./data", train=False, transform=transforms.ToTensor(), download=True)
-testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
 
-# Evaluation function
 def evaluate(model, dataloader, device):
     model.eval()  # Set to evaluation mode
     correct = 0
