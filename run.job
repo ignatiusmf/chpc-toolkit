@@ -14,11 +14,14 @@ source /mnt/lustre/users/iferreira/myenv/bin/activate
 
 
 
-echo 'CHPC toolkit, training a CNN on Cifar-10'
 date
-echo ' ' 
+echo 'CHPC toolkit, training a CNN on Cifar-10'
+echo -e 'Running python /mnt/lustre/users/iferreira/chpc-toolkit/main.py\n'
 
 
-echo 'Running python /mnt/lustre/users/iferreira/chpc-toolkit/main.py'
+start_time=$(date +%s) 
+
 cd /mnt/lustre/users/iferreira/chpc-toolkit
 python /mnt/lustre/users/iferreira/chpc-toolkit/main.py
+
+echo -e "\nTotal execution time: $(( $(date +%s) - start_time)) seconds"

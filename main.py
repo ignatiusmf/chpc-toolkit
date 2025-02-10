@@ -100,8 +100,13 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)  # Add L2 regularization
 
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"Total parameters: {total_params}")
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Trainable parameters: {trainable_params}")
+
     print("Training")
-    epochs = 1
+    epochs = 25
     for epoch in range(epochs):
         model.train()
         running_loss = 0.0
