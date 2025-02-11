@@ -6,8 +6,9 @@ import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import math
-import numpy as np
 import os
+import numpy as np
+import json
 
 # Define a larger CNN model
 class LargeCNN(nn.Module):
@@ -131,6 +132,33 @@ def load_checkpoint(model, optimizer, filename):
         return 0
 
 
+def save_loss(loss_data, filename):
+    with open(filename, 'w') as f:
+        json.dump(loss_data, f)
+
+def load_loss(filename):
+    if os.path.isfile(filename):
+        with open(filename, 'r') as f:
+            loss_data = json.load(f)
+        print(f"Loss data loaded from {filename}")
+        return loss_data
+    else:
+        return []
+
+def save_acc(acc_data, filename):
+    with open(filename, 'w') as f:
+        json.dump(acc_data, f)
+
+def load_acc(filename):
+    if os.path.isfile(filename):
+        with open(filename, 'r') as f:
+            acc_data = json.load(f)
+        print(f"Test accuracy data loaded from {filename}")
+        return acc_data
+    else:
+        return []
+
+
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using", device)
@@ -145,12 +173,12 @@ def main():
     testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=data_transforms, download=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
 
-
     visualize_dataset(trainset, trainloader)
 
     model_large = LargeCNN().to(device)
     model_small = SmallCNN().to(device)
 
+    # Define loss function and optimizers
     criterion = nn.CrossEntropyLoss()
     optimizer_large = optim.Adam(model_large.parameters(), lr=0.001, weight_decay=1e-4)
     optimizer_small = optim.Adam(model_small.parameters(), lr=0.001, weight_decay=1e-4)
@@ -160,12 +188,28 @@ def main():
     total_params_small = sum(p.numel() for p in model_small.parameters())
     print(f"Total parameters for small model: {total_params_small:,}")
 
-    start_epoch_large = load_checkpoint(model_large, optimizer_large, "models/large_cnn_checkpoint.pth")
-    start_epoch_small = load_checkpoint(model_small, optimizer_small, "models/small_cnn_checkpoint.pth")
+    start_epoch_large = load_checkpoint(model_large, optimizer_large, "checkpoint/large_cnn_checkpoint.pth")
+    start_epoch_small = load_checkpoint(model_small, optimizer_small, "checkpoint/small_cnn_checkpoint.pth")
 
-    lossi = []
-    # Training loop
-    epochs = 10
+    lossi = load_loss("checkpoint/loss.json")
+
+    test_accuracy = load_acc("checkpoint/test_acc.json")
+
+    def evaluate(model, dataloader, device):
+        model.eval()
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for images, labels in dataloader:
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                _, preds = torch.max(outputs, 1)
+                correct += (preds == labels).sum().item()
+                total += labels.size(0)
+        accuracy = correct / total * 100
+        return accuracy
+
+    epochs = 50
     for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
         model_large.train()
         model_small.train()
@@ -199,41 +243,43 @@ def main():
         avg_loss_small = running_loss_small / len(trainloader)
         print(f"Epoch [{epoch+1}/{epochs}], LargeCNN Loss: {avg_loss_large:.4f}, SmallCNN Loss: {avg_loss_small:.4f}")
 
-        # Save checkpoints
-        save_checkpoint(model_large, optimizer_large, epoch, "models/large_cnn_checkpoint.pth")
-        save_checkpoint(model_small, optimizer_small, epoch, "models/small_cnn_checkpoint.pth")
+        accuracy_large = evaluate(model_large, testloader, device)
+        accuracy_small = evaluate(model_small, testloader, device)
+        print(f"Test Accuracy - LargeCNN: {accuracy_large:.2f}%")
+        print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}%")
+        test_accuracy.append([accuracy_large, accuracy_small])
+
+        save_checkpoint(model_large, optimizer_large, epoch + 1, "checkpoint/large_cnn_checkpoint.pth")
+        save_checkpoint(model_small, optimizer_small, epoch + 1, "checkpoint/small_cnn_checkpoint.pth")
+        save_loss(lossi, "checkpoint/loss.json")
+        save_acc(test_accuracy, "checkpoint/test_acc.json")
+
 
     print("Training complete.")
 
     lossi = np.array(lossi)
 
-
     plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="LargeCNN")
     plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="SmallCNN")
+    for x in range(0, len(lossi[:,0]), len(trainloader)):
+        plt.axvline(x=x, color='gray', linestyle='--',linewidth=0.5)
+
     plt.xlabel("Batch")
     plt.ylabel("Log Loss")
     plt.legend()
     plt.savefig("logs/Loss.png")
     plt.close()
-    # Evaluation function
-    def evaluate(model, dataloader, device):
-        model.eval()
-        correct = 0
-        total = 0
-        with torch.no_grad():
-            for images, labels in dataloader:
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                _, preds = torch.max(outputs, 1)
-                correct += (preds == labels).sum().item()
-                total += labels.size(0)
-        accuracy = correct / total * 100
-        return accuracy
 
-    accuracy_large = evaluate(model_large, testloader, device)
-    accuracy_small = evaluate(model_small, testloader, device)
-    print(f"Test Accuracy - LargeCNN: {accuracy_large:.2f}%")
-    print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}%")
+
+    test_accuracy = np.array(test_accuracy)
+    plt.plot(test_accuracy[:,0], label="LargeCNN Accuracy")
+    plt.plot(test_accuracy[:,1], label="SmallCNN Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Test Accuracy")
+    plt.legend()
+    plt.savefig("logs/test_acc.png")
+    plt.close()
+
 
     visualize_predictions(model_large, testset, testloader, device, "Large Model")
     visualize_predictions(model_small, testset, testloader, device, "Small Model")
