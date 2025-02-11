@@ -70,47 +70,6 @@ class SmallCNN(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-def visualize_dataset(dataset, dataloader):
-    class_names = dataset.classes
-    dataiter = iter(dataloader)
-    images, labels = next(dataiter)
-    images = images[:10]
-    labels = labels[:10]
-
-    fig, axes = plt.subplots(1, 10, figsize=(18, 3))
-    for i in range(10):
-        img = images[i].permute(1, 2, 0) * 0.5 + 0.5  
-        axes[i].imshow(img)
-        axes[i].set_title(f"{class_names[labels[i].item()]}")
-        axes[i].axis("off")
-    plt.savefig("logs/dataset_visualization.png")
-    plt.close()
-
-def visualize_predictions(model, dataset, dataloader, device, description):
-    class_names = dataset.classes
-    dataiter = iter(dataloader)
-    images, labels = next(dataiter)
-    images = images[:10]
-    labels = labels[:10]
-
-    model.eval()
-    with torch.no_grad():
-        images, labels = images.to(device), labels.to(device)
-        outputs = model(images)
-        _, preds = torch.max(outputs, 1)
-        probabilities = F.softmax(outputs, dim=1)
-
-    images, labels, preds, probabilities = images.cpu(), labels.cpu(), preds.cpu(), probabilities.cpu()
-
-    fig, axes = plt.subplots(1, 10, figsize=(18, 3))
-    for i in range(10):
-        img = images[i].permute(1, 2, 0) * 0.5 + 0.5  
-        axes[i].imshow(img)
-        axes[i].set_title(f"True: {class_names[labels[i].item()]}\nPred: {class_names[preds[i].item()]}\nProb: {probabilities[i][preds[i]].item():.2f}")
-        axes[i].axis("off")
-    plt.savefig(f"logs/model_predictions-{description}.png")
-    plt.close()
-
 def save_checkpoint(model, optimizer, epoch, filename):
     checkpoint = {
         'epoch': epoch,
@@ -124,7 +83,8 @@ def load_checkpoint(model, optimizer, filename):
     if os.path.isfile(filename):
         checkpoint = torch.load(filename, weights_only=True)
         model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if optimizer:
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         print(f"Checkpoint loaded: {filename} (Epoch {checkpoint['epoch']})")
         return checkpoint['epoch']
     else:
@@ -173,27 +133,26 @@ def main():
     testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=data_transforms, download=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
 
-    visualize_dataset(trainset, trainloader)
-
-    model_large = LargeCNN().to(device)
+    model_teacher= LargeCNN().to(device)
     model_small = SmallCNN().to(device)
+    model_student = SmallCNN().to(device)
 
     # Define loss function and optimizers
     criterion = nn.CrossEntropyLoss()
-    optimizer_large = optim.Adam(model_large.parameters(), lr=0.001, weight_decay=1e-4)
     optimizer_small = optim.Adam(model_small.parameters(), lr=0.001, weight_decay=1e-4)
+    optimizer_student = optim.Adam(model_student.parameters(), lr=0.001, weight_decay=1e-4)
 
-    total_params_large = sum(p.numel() for p in model_large.parameters())
-    print(f"Total parameters for large model: {total_params_large:,}")
+    total_params_teacher = sum(p.numel() for p in model_teacher.parameters())
+    print(f"Total parameters for teacher model: {total_params_teacher:,}")
     total_params_small = sum(p.numel() for p in model_small.parameters())
-    print(f"Total parameters for small model: {total_params_small:,}")
+    print(f"Total parameters for small / student model: {total_params_small:,}")
 
-    start_epoch_large = load_checkpoint(model_large, optimizer_large, "checkpoint/large_cnn_checkpoint.pth")
-    start_epoch_small = load_checkpoint(model_small, optimizer_small, "checkpoint/small_cnn_checkpoint.pth")
+    load_checkpoint(model_teacher, None, "checkpoint/large_cnn_checkpoint.pth")
+    start_epoch_small = load_checkpoint(model_small, optimizer_small, "checkpoint/kd_small.pth")
+    start_epoch_student = load_checkpoint(model_student, optimizer_student, "checkpoint/kd_student.pth")
 
-    lossi = load_loss("checkpoint/loss.json")
-
-    test_accuracy = load_acc("checkpoint/test_acc.json")
+    lossi = load_loss("checkpoint/kd.json")
+    test_accuracy = load_acc("checkpoint/kd_test_acc.json")
 
     def evaluate(model, dataloader, device):
         model.eval()
@@ -209,12 +168,12 @@ def main():
         accuracy = correct / total * 100
         return accuracy
 
-    epochs = 1 
-    for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
-        model_large.train()
+    epochs = 5 
+    for epoch in range(start_epoch_small, epochs):
         model_small.train()
-        running_loss_large = 0.0
+        model_student.train()
         running_loss_small = 0.0
+        running_loss_student = 0.0
         batch = 0
         for images, labels in trainloader:
             batch += 1
@@ -223,13 +182,6 @@ def main():
 
             images, labels = images.to(device), labels.to(device)
             
-            optimizer_large.zero_grad()
-            outputs_large = model_large(images)
-            loss_large = criterion(outputs_large, labels)
-            loss_large.backward()
-            optimizer_large.step()
-            running_loss_large += loss_large.item()
-
             optimizer_small.zero_grad()
             outputs_small = model_small(images)
             loss_small = criterion(outputs_small, labels)
@@ -237,52 +189,59 @@ def main():
             optimizer_small.step()
             running_loss_small += loss_small.item()
 
-            lossi.append([np.log10(loss_large.item()), np.log10(loss_small.item())])
+            optimizer_student.zero_grad()
+            outputs_student= model_student(images)
+            loss_student= criterion(outputs_student, labels)
+            loss_student.backward()
+            optimizer_student.step()
+            running_loss_student+= loss_student.item()
+
+            lossi.append([np.log10(loss_small.item()), np.log10(loss_student.item())])
         
-        avg_loss_large = running_loss_large / len(trainloader)
         avg_loss_small = running_loss_small / len(trainloader)
-        print(f"Epoch [{epoch+1}/{epochs}], LargeCNN Loss: {avg_loss_large:.4f}, SmallCNN Loss: {avg_loss_small:.4f}")
+        avg_loss_student= running_loss_student / len(trainloader)
 
-        accuracy_large = evaluate(model_large, testloader, device)
-        accuracy_small = evaluate(model_small, testloader, device)
-        print(f"Test Accuracy - LargeCNN: {accuracy_large:.2f}%")
+        print(f"Epoch [{epoch+1}/{epochs}], SmallCNN Loss: {avg_loss_small:.4f}, StudentCNN Loss: {avg_loss_student:.4f}")
+
+        accuracy_small= evaluate(model_small, testloader, device)
+        accuracy_student = evaluate(model_student, testloader, device)
+
         print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}%")
-        test_accuracy.append([accuracy_large, accuracy_small])
+        print(f"Test Accuracy - StudentCNN: {accuracy_student:.2f}%")
 
-        save_checkpoint(model_large, optimizer_large, epoch + 1, "checkpoint/large_cnn_checkpoint.pth")
-        save_checkpoint(model_small, optimizer_small, epoch + 1, "checkpoint/small_cnn_checkpoint.pth")
-        save_loss(lossi, "checkpoint/loss.json")
-        save_acc(test_accuracy, "checkpoint/test_acc.json")
+        test_accuracy.append([accuracy_small, accuracy_student])
+
+        save_checkpoint(model_small, optimizer_small, epoch + 1, "checkpoint/kd_small.pth")
+        save_checkpoint(model_student, optimizer_student, epoch + 1, "checkpoint/kd_student.pth")
+
+        save_loss(lossi, "checkpoint/kd_loss.json")
+        save_acc(test_accuracy, "checkpoint/kd_test_acc.json")
 
 
     print("Training complete.")
 
     lossi = np.array(lossi)
 
-    plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="LargeCNN")
-    plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="SmallCNN")
-    for x in range(0, len(lossi[:,0]), len(trainloader)):
+    plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="SmallCNN")
+    plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="StudentCNN")
+    for x in range(0, len(lossi), len(trainloader)):
         plt.axvline(x=x, color='gray', linestyle='--',linewidth=0.5)
 
     plt.xlabel("Batch")
     plt.ylabel("Log Loss")
     plt.legend()
-    plt.savefig("logs/Loss.png")
+    plt.savefig("logs/KD_Loss.png")
     plt.close()
 
 
     test_accuracy = np.array(test_accuracy)
-    plt.plot(test_accuracy[:,0], label="LargeCNN Accuracy")
-    plt.plot(test_accuracy[:,1], label="SmallCNN Accuracy")
+    plt.plot(test_accuracy[:,0], label="SmallCNN Accuracy")
+    plt.plot(test_accuracy[:,1], label="StudentCNN Accuracy")
     plt.xlabel("Epoch")
-    plt.ylabel("Test Accuracy")
+    plt.ylabel("KD Test Accuracy")
     plt.legend()
-    plt.savefig("logs/test_acc.png")
+    plt.savefig("logs/KD_test_acc.png")
     plt.close()
-
-
-    visualize_predictions(model_large, testset, testloader, device, "Large Model")
-    visualize_predictions(model_small, testset, testloader, device, "Small Model")
 
 
 main()
