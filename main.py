@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import math
 import numpy as np
+import os
 
 # Define a larger CNN model
 class LargeCNN(nn.Module):
@@ -109,6 +110,26 @@ def visualize_predictions(model, dataset, dataloader, device, description):
     plt.savefig(f"logs/model_predictions-{description}.png")
     plt.close()
 
+def save_checkpoint(model, optimizer, epoch, filename):
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }
+    torch.save(checkpoint, filename)
+
+
+def load_checkpoint(model, optimizer, filename):
+    if os.path.isfile(filename):
+        checkpoint = torch.load(filename, weights_only=True)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        print(f"Checkpoint loaded: {filename} (Epoch {checkpoint['epoch']})")
+        return checkpoint['epoch']
+    else:
+        print("No checkpoint found, starting from scratch.")
+        return 0
+
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -139,9 +160,13 @@ def main():
     total_params_small = sum(p.numel() for p in model_small.parameters())
     print(f"Total parameters for small model: {total_params_small:,}")
 
+    start_epoch_large = load_checkpoint(model_large, optimizer_large, "models/large_cnn_checkpoint.pth")
+    start_epoch_small = load_checkpoint(model_small, optimizer_small, "models/small_cnn_checkpoint.pth")
+
     lossi = []
+    # Training loop
     epochs = 10
-    for epoch in range(epochs):
+    for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
         model_large.train()
         model_small.train()
         running_loss_large = 0.0
@@ -174,11 +199,17 @@ def main():
         avg_loss_small = running_loss_small / len(trainloader)
         print(f"Epoch [{epoch+1}/{epochs}], LargeCNN Loss: {avg_loss_large:.4f}, SmallCNN Loss: {avg_loss_small:.4f}")
 
+        # Save checkpoints
+        save_checkpoint(model_large, optimizer_large, epoch, "models/large_cnn_checkpoint.pth")
+        save_checkpoint(model_small, optimizer_small, epoch, "models/small_cnn_checkpoint.pth")
+
     print("Training complete.")
 
     lossi = np.array(lossi)
-    plt.plot(lossi[:, 0], label="LargeCNN")
-    plt.plot(lossi[:,1], label="SmallCNN")
+
+
+    plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="LargeCNN")
+    plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="SmallCNN")
     plt.xlabel("Batch")
     plt.ylabel("Log Loss")
     plt.legend()
