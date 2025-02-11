@@ -6,35 +6,65 @@ import torchvision
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import math
+import numpy as np
 
-class SimpleCNN(nn.Module):
+# Define a larger CNN model
+class LargeCNN(nn.Module):
     def __init__(self):
-        super(SimpleCNN, self).__init__()
+        super(LargeCNN, self).__init__()
         self.network = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1), 
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            
-            nn.Conv2d(32, 64, kernel_size=3, padding=1), 
+            nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),
 
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(2, 2),
 
-            nn.Flatten(),
-            nn.Linear(128 * 8 * 8, 512),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(512, 128),
-            nn.ReLU(),
-            nn.Dropout(0.5),
-            nn.Linear(128, 10)
-        )
+            nn.MaxPool2d(2, 2),
 
+            nn.Flatten(),
+
+            nn.Linear(256 * 8 * 8, 1024),
+            nn.ReLU(),
+
+            nn.Dropout(0.5),
+            nn.Linear(1024, 512),
+            nn.ReLU(),
+
+            nn.Dropout(0.5),
+            nn.Linear(512, 10)
+        )
+    def forward(self, x):
+        return self.network(x)
+
+# Define a smaller CNN model
+class SmallCNN(nn.Module):
+    def __init__(self):
+        super(SmallCNN, self).__init__()
+        self.network = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+
+            nn.Flatten(),
+
+            nn.Linear(64 * 8 * 8, 256),
+            nn.ReLU(),
+
+            nn.Dropout(0.5),
+            nn.Linear(256, 10)
+        )
     def forward(self, x):
         return self.network(x)
 
@@ -51,9 +81,10 @@ def visualize_dataset(dataset, dataloader):
         axes[i].imshow(img)
         axes[i].set_title(f"{class_names[labels[i].item()]}")
         axes[i].axis("off")
-    plt.show()
+    plt.savefig("logs/dataset_visualization.png")
+    plt.close()
 
-def visualize_predictions(model, dataset, dataloader, device):
+def visualize_predictions(model, dataset, dataloader, device, description):
     class_names = dataset.classes
     dataiter = iter(dataloader)
     images, labels = next(dataiter)
@@ -75,7 +106,8 @@ def visualize_predictions(model, dataset, dataloader, device):
         axes[i].imshow(img)
         axes[i].set_title(f"True: {class_names[labels[i].item()]}\nPred: {class_names[preds[i].item()]}\nProb: {probabilities[i][preds[i]].item():.2f}")
         axes[i].axis("off")
-    plt.show()
+    plt.savefig(f"logs/model_predictions-{description}.png")
+    plt.close()
 
 
 def main():
@@ -91,44 +123,67 @@ def main():
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
     testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=data_transforms, download=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
-    totalbatches = len(trainloader)
 
 
-    # visualize_dataset(trainset, trainloader)
+    visualize_dataset(trainset, trainloader)
 
-    model = SimpleCNN().to(device)
+    model_large = LargeCNN().to(device)
+    model_small = SmallCNN().to(device)
+
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)  # Add L2 regularization
+    optimizer_large = optim.Adam(model_large.parameters(), lr=0.001, weight_decay=1e-4)
+    optimizer_small = optim.Adam(model_small.parameters(), lr=0.001, weight_decay=1e-4)
 
-    total_params = sum(p.numel() for p in model.parameters())
-    print(f"Total parameters: {total_params}")
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Trainable parameters: {trainable_params}")
+    total_params_large = sum(p.numel() for p in model_large.parameters())
+    print(f"Total parameters for large model: {total_params_large:,}")
+    total_params_small = sum(p.numel() for p in model_small.parameters())
+    print(f"Total parameters for small model: {total_params_small:,}")
 
-    print("Training")
-    epochs = 25
+    lossi = []
+    epochs = 10
     for epoch in range(epochs):
-        model.train()
-        running_loss = 0.0
+        model_large.train()
+        model_small.train()
+        running_loss_large = 0.0
+        running_loss_small = 0.0
         batch = 0
         for images, labels in trainloader:
             batch += 1
-            # if batch % math.floor((totalbatches / 3)) == 0:
-            #     print(f"Epoch {epoch+1} batch progress: {round(batch*100/totalbatches)}% ")
-            images, labels = images.to(device), labels.to(device)
+            if batch % math.floor((len(trainloader) / 10)) == 0 and epochs == 1:
+                print(f"Epoch {epoch+1} batch progress: {round(batch*100/len(trainloader))}% ")
 
-            optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
+            images, labels = images.to(device), labels.to(device)
+            
+            optimizer_large.zero_grad()
+            outputs_large = model_large(images)
+            loss_large = criterion(outputs_large, labels)
+            loss_large.backward()
+            optimizer_large.step()
+            running_loss_large += loss_large.item()
+
+            optimizer_small.zero_grad()
+            outputs_small = model_small(images)
+            loss_small = criterion(outputs_small, labels)
+            loss_small.backward()
+            optimizer_small.step()
+            running_loss_small += loss_small.item()
+
+            lossi.append([np.log10(loss_large.item()), np.log10(loss_small.item())])
         
-        avg_loss = running_loss / len(trainloader)
-        print(f"Epoch [{epoch+1}/{epochs}], Loss: {avg_loss:.4f}")
+        avg_loss_large = running_loss_large / len(trainloader)
+        avg_loss_small = running_loss_small / len(trainloader)
+        print(f"Epoch [{epoch+1}/{epochs}], LargeCNN Loss: {avg_loss_large:.4f}, SmallCNN Loss: {avg_loss_small:.4f}")
 
     print("Training complete.")
 
+    lossi = np.array(lossi)
+    plt.plot(lossi[:, 0], label="LargeCNN")
+    plt.plot(lossi[:,1], label="SmallCNN")
+    plt.xlabel("Batch")
+    plt.ylabel("Log Loss")
+    plt.legend()
+    plt.savefig("logs/Loss.png")
+    plt.close()
     # Evaluation function
     def evaluate(model, dataloader, device):
         model.eval()
@@ -141,15 +196,16 @@ def main():
                 _, preds = torch.max(outputs, 1)
                 correct += (preds == labels).sum().item()
                 total += labels.size(0)
-
         accuracy = correct / total * 100
         return accuracy
 
-    # Run evaluation
-    accuracy = evaluate(model, testloader, device)
-    print(f"Test Accuracy: {accuracy:.2f}%")
-    
-    # visualize_predictions(model, testset, testloader, device)
+    accuracy_large = evaluate(model_large, testloader, device)
+    accuracy_small = evaluate(model_small, testloader, device)
+    print(f"Test Accuracy - LargeCNN: {accuracy_large:.2f}%")
+    print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}%")
+
+    visualize_predictions(model_large, testset, testloader, device, "Large Model")
+    visualize_predictions(model_small, testset, testloader, device, "Small Model")
 
 
 main()
