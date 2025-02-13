@@ -158,6 +158,19 @@ def load_acc(filename):
     else:
         return []
 
+def evaluate(model, dataloader, device):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, preds = torch.max(outputs, 1)
+            correct += (preds == labels).sum().item()
+            total += labels.size(0)
+    accuracy = correct / total * 100
+    return accuracy
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -195,21 +208,9 @@ def main():
 
     test_accuracy = load_acc("checkpoint/test_acc.json")
 
-    def evaluate(model, dataloader, device):
-        model.eval()
-        correct = 0
-        total = 0
-        with torch.no_grad():
-            for images, labels in dataloader:
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                _, preds = torch.max(outputs, 1)
-                correct += (preds == labels).sum().item()
-                total += labels.size(0)
-        accuracy = correct / total * 100
-        return accuracy
 
-    epochs = 10
+
+    epochs = 1
     for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
         model_large.train()
         model_small.train()
@@ -238,9 +239,8 @@ def main():
             running_loss_small += loss_small.item()
 
             lossi.append([np.log10(loss_large.item()), np.log10(loss_small.item())])
-            plot_loss(lossi, trainloader)
+        plot_loss(lossi, trainloader)
         
-        print(batch, "this is the batch lenght")
         avg_loss_large = running_loss_large / len(trainloader)
         avg_loss_small = running_loss_small / len(trainloader)
         print(f"Epoch [{epoch+1}/{epochs}], LargeCNN Loss: {avg_loss_large:.4f}, SmallCNN Loss: {avg_loss_small:.4f}")
@@ -293,4 +293,7 @@ def plot_accuracy(accuracy):
     #visualize_predictions(model_small, testset, testloader, device, "Small Model")
 
 
+import time
+start_time = time.time()
 main()
+print(f"Total execution time = {(time.time() - start_time):.2f}")

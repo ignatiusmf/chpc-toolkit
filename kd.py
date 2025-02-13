@@ -10,7 +10,6 @@ import os
 import numpy as np
 import json
 
-# Define a larger CNN model
 class LargeCNN(nn.Module):
     def __init__(self):
         super(LargeCNN, self).__init__()
@@ -44,7 +43,6 @@ class LargeCNN(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-# Define a smaller CNN model
 class SmallCNN(nn.Module):
     def __init__(self):
         super(SmallCNN, self).__init__()
@@ -69,7 +67,6 @@ class SmallCNN(nn.Module):
         )
     def forward(self, x):
         return self.network(x)
-
 def save_checkpoint(model, optimizer, epoch, filename):
     checkpoint = {
         'epoch': epoch,
@@ -90,7 +87,6 @@ def load_checkpoint(model, optimizer, filename):
     else:
         print("No checkpoint found, starting from scratch.")
         return 0
-
 
 def save_loss(loss_data, filename):
     with open(filename, 'w') as f:
@@ -118,62 +114,110 @@ def load_acc(filename):
     else:
         return []
 
+def evaluate(model, dataloader, device):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for images, labels in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, preds = torch.max(outputs, 1)
+            correct += (preds == labels).sum().item()
+            total += labels.size(0)
+    return correct / total * 100
+
+def distillation_loss(student_logits, teacher_logits, labels, T=4.0, alpha=0.7):
+    soft_targets = F.kl_div(
+        F.log_softmax(student_logits / T, dim=1),
+        F.softmax(teacher_logits / T, dim=1),
+        reduction='batchmean'
+    ) * (T * T)
+    
+    hard_targets = F.cross_entropy(student_logits, labels)
+    return alpha * soft_targets + (1 - alpha) * hard_targets
+
+def train_student_with_kd_and_control(model_student, model_control, model_teacher, trainloader, optimizer_student, optimizer_control, device, T=4.0, alpha=0.7):
+    model_student.train()
+    model_control.train()
+    model_teacher.eval()
+    running_loss_student = 0.0
+    running_loss_control = 0.0
+    
+    for images, labels in trainloader:
+        images, labels = images.to(device), labels.to(device)
+        
+        optimizer_student.zero_grad()
+        optimizer_control.zero_grad()
+        
+        with torch.no_grad():
+            outputs_teacher = model_teacher(images)
+        
+        outputs_student = model_student(images)
+        outputs_control = model_control(images)
+        
+        loss_student = distillation_loss(outputs_student, outputs_teacher, labels, T, alpha)
+        loss_control = F.cross_entropy(outputs_control, labels)
+        
+        loss_student.backward()
+        optimizer_student.step()
+        
+        loss_control.backward()
+        optimizer_control.step()
+        
+        running_loss_student += loss_student.item()
+        running_loss_control += loss_control.item()
+    
+    return running_loss_student / len(trainloader), running_loss_control / len(trainloader)
+
+
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using", device)
 
-    data_transforms = transforms.Compose([
+    transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    trainset = torchvision.datasets.CIFAR10(root="./data", train=True, transform=data_transforms, download=True)
+    trainset = torchvision.datasets.CIFAR10(root="./data", train=True, transform=transform, download=True)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
-    testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=data_transforms, download=True)
+    testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=transform, download=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
 
     model_teacher = LargeCNN().to(device)
-    model_small = SmallCNN().to(device)
     model_student = SmallCNN().to(device)
+    model_control = SmallCNN().to(device)
 
-    # Define loss function and optimizers
-    criterion = nn.CrossEntropyLoss()
-    optimizer_small = optim.Adam(model_small.parameters(), lr=0.001, weight_decay=1e-4)
     optimizer_student = optim.Adam(model_student.parameters(), lr=0.001, weight_decay=1e-4)
+    optimizer_control = optim.Adam(model_control.parameters(), lr=0.001, weight_decay=1e-4)
 
     total_params_teacher = sum(p.numel() for p in model_teacher.parameters())
     print(f"Total parameters for teacher model: {total_params_teacher:,}")
-    total_params_small = sum(p.numel() for p in model_small.parameters())
-    print(f"Total parameters for small / student model: {total_params_small:,}")
+    total_params_small = sum(p.numel() for p in model_student.parameters())
+    print(f"Total parameters for control / student model: {total_params_small:,}")
 
     load_checkpoint(model_teacher, None, "checkpoint/large_cnn_checkpoint.pth")
-    start_epoch_small = load_checkpoint(model_small, optimizer_small, "checkpoint/kd_small.pth")
-    start_epoch_student = load_checkpoint(model_student, optimizer_student, "checkpoint/kd_student.pth")
+    start_epoch_large = load_checkpoint(model_student, optimizer_student, "checkpoint/KD_student.pth")
+    start_epoch_small = load_checkpoint(model_control, optimizer_control, "checkpoint/KD_control.pth")
 
-    lossi = load_loss("checkpoint/kd.json")
-    test_accuracy = load_acc("checkpoint/kd_test_acc.json")
+    lossi = load_loss("checkpoint/KD_loss.json")
 
-    def evaluate(model, dataloader, device):
-        model.eval()
-        correct = 0
-        total = 0
-        with torch.no_grad():
-            for images, labels in dataloader:
-                images, labels = images.to(device), labels.to(device)
-                outputs = model(images)
-                _, preds = torch.max(outputs, 1)
-                correct += (preds == labels).sum().item()
-                total += labels.size(0)
-        accuracy = correct / total * 100
-        return accuracy
+    test_accuracy = load_acc("checkpoint/KD_test_acc.json")
 
-    epochs = 5 
-    for epoch in range(start_epoch_small, epochs):
-        model_small.train()
+    T = 4.0
+    alpha = 0.7
+
+    epochs = 5
+    for epoch in range(epochs):
+
         model_student.train()
-        running_loss_small = 0.0
+        model_control.train()
+        model_teacher.eval()
         running_loss_student = 0.0
+        running_loss_control = 0.0
+        
         batch = 0
         for images, labels in trainloader:
             batch += 1
@@ -182,49 +226,56 @@ def main():
 
             images, labels = images.to(device), labels.to(device)
             
-            optimizer_small.zero_grad()
-            outputs_small = model_small(images)
-            loss_small = criterion(outputs_small, labels)
-            loss_small.backward()
-            optimizer_small.step()
-            running_loss_small += loss_small.item()
-
             optimizer_student.zero_grad()
-            outputs_student= model_student(images)
-            loss_student= criterion(outputs_student, labels)
+            optimizer_control.zero_grad()
+            
+            with torch.no_grad():
+                outputs_teacher = model_teacher(images)
+            
+            outputs_student = model_student(images)
+            outputs_control = model_control(images)
+            
+            loss_student = distillation_loss(outputs_student, outputs_teacher, labels, T, alpha)
+            loss_control = F.cross_entropy(outputs_control, labels)
+            
             loss_student.backward()
             optimizer_student.step()
-            running_loss_student+= loss_student.item()
+            
+            loss_control.backward()
+            optimizer_control.step()
+            
+            running_loss_student += loss_student.item()
+            running_loss_control += loss_control.item()
 
-            lossi.append([np.log10(loss_small.item()), np.log10(loss_student.item())])
-        
-        avg_loss_small = running_loss_small / len(trainloader)
-        avg_loss_student= running_loss_student / len(trainloader)
+            lossi.append([np.log10(loss_student.item()), np.log10(loss_control.item())])
+        plot_loss(lossi, trainloader)
 
-        print(f"Epoch [{epoch+1}/{epochs}], SmallCNN Loss: {avg_loss_small:.4f}, StudentCNN Loss: {avg_loss_student:.4f}")
 
-        accuracy_small= evaluate(model_small, testloader, device)
-        accuracy_student = evaluate(model_student, testloader, device)
+        loss_student, loss_control = running_loss_student / len(trainloader), running_loss_control / len(trainloader)
+        print(f"Epoch [{epoch+1}/{epochs}], Student Loss: {loss_student:.4f}, Control Loss: {loss_control:.4f}")
 
-        print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}%")
-        print(f"Test Accuracy - StudentCNN: {accuracy_student:.2f}%")
+        acc_student = evaluate(model_student, testloader, device)
+        acc_control = evaluate(model_control, testloader, device)
+        print(f"Test Accuracy - StudentCNN: {acc_student:.2f}%")
+        print(f"Test Accuracy - ControlCNN: {acc_control:.2f}%")
+        test_accuracy.append([acc_student, acc_control])
 
-        test_accuracy.append([accuracy_small, accuracy_student])
+        plot_accuracy(test_accuracy)
 
-        save_checkpoint(model_small, optimizer_small, epoch + 1, "checkpoint/kd_small.pth")
-        save_checkpoint(model_student, optimizer_student, epoch + 1, "checkpoint/kd_student.pth")
-
-        save_loss(lossi, "checkpoint/kd_loss.json")
-        save_acc(test_accuracy, "checkpoint/kd_test_acc.json")
+        save_checkpoint(model_student, optimizer_student, epoch + 1, "checkpoint/KD_student.pth")
+        save_checkpoint(model_control, optimizer_control, epoch + 1, "checkpoint/KD_control.pth")
+        save_loss(lossi, "checkpoint/KD_loss.json")
+        save_acc(test_accuracy, "checkpoint/KD_test_acc.json")
 
 
     print("Training complete.")
 
-    lossi = np.array(lossi)
+def plot_loss(loss,loader):
+    lossi = np.array(loss)
 
-    plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="SmallCNN")
-    plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="StudentCNN")
-    for x in range(0, len(lossi), len(trainloader)):
+    plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="Student")
+    plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="Control")
+    for x in range(0, len(lossi[:,0]), len(loader)):
         plt.axvline(x=x, color='gray', linestyle='--',linewidth=0.5)
 
     plt.xlabel("Batch")
@@ -233,15 +284,14 @@ def main():
     plt.savefig("logs/KD_Loss.png")
     plt.close()
 
-
-    test_accuracy = np.array(test_accuracy)
-    plt.plot(test_accuracy[:,0], label="SmallCNN Accuracy")
-    plt.plot(test_accuracy[:,1], label="StudentCNN Accuracy")
+def plot_accuracy(accuracy):
+    test_accuracy = np.array(accuracy)
+    plt.plot(test_accuracy[:,0], label="StudentCNN Accuracy")
+    plt.plot(test_accuracy[:,1], label="ControlCNN Accuracy")
     plt.xlabel("Epoch")
-    plt.ylabel("KD Test Accuracy")
+    plt.ylabel("Test Accuracy")
     plt.legend()
     plt.savefig("logs/KD_test_acc.png")
     plt.close()
-
 
 main()
