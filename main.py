@@ -173,7 +173,7 @@ def main():
     testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=data_transforms, download=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
 
-    visualize_dataset(trainset, trainloader)
+    #visualize_dataset(trainset, trainloader)
 
     model_large = LargeCNN().to(device)
     model_small = SmallCNN().to(device)
@@ -209,7 +209,7 @@ def main():
         accuracy = correct / total * 100
         return accuracy
 
-    epochs = 1 
+    epochs = 10
     for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
         model_large.train()
         model_small.train()
@@ -238,7 +238,9 @@ def main():
             running_loss_small += loss_small.item()
 
             lossi.append([np.log10(loss_large.item()), np.log10(loss_small.item())])
+            plot_loss(lossi, trainloader)
         
+        print(batch, "this is the batch lenght")
         avg_loss_large = running_loss_large / len(trainloader)
         avg_loss_small = running_loss_small / len(trainloader)
         print(f"Epoch [{epoch+1}/{epochs}], LargeCNN Loss: {avg_loss_large:.4f}, SmallCNN Loss: {avg_loss_small:.4f}")
@@ -249,6 +251,11 @@ def main():
         print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}%")
         test_accuracy.append([accuracy_large, accuracy_small])
 
+
+
+        plot_accuracy(test_accuracy)
+
+
         save_checkpoint(model_large, optimizer_large, epoch + 1, "checkpoint/large_cnn_checkpoint.pth")
         save_checkpoint(model_small, optimizer_small, epoch + 1, "checkpoint/small_cnn_checkpoint.pth")
         save_loss(lossi, "checkpoint/loss.json")
@@ -257,11 +264,13 @@ def main():
 
     print("Training complete.")
 
-    lossi = np.array(lossi)
+
+def plot_loss(loss,loader):
+    lossi = np.array(loss)
 
     plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="LargeCNN")
     plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="SmallCNN")
-    for x in range(0, len(lossi[:,0]), len(trainloader)):
+    for x in range(0, len(lossi[:,0]), len(loader)):
         plt.axvline(x=x, color='gray', linestyle='--',linewidth=0.5)
 
     plt.xlabel("Batch")
@@ -270,8 +279,8 @@ def main():
     plt.savefig("logs/Loss.png")
     plt.close()
 
-
-    test_accuracy = np.array(test_accuracy)
+def plot_accuracy(accuracy):
+    test_accuracy = np.array(accuracy)
     plt.plot(test_accuracy[:,0], label="LargeCNN Accuracy")
     plt.plot(test_accuracy[:,1], label="SmallCNN Accuracy")
     plt.xlabel("Epoch")
@@ -280,9 +289,8 @@ def main():
     plt.savefig("logs/test_acc.png")
     plt.close()
 
-
-    visualize_predictions(model_large, testset, testloader, device, "Large Model")
-    visualize_predictions(model_small, testset, testloader, device, "Small Model")
+    #visualize_predictions(model_large, testset, testloader, device, "Large Model")
+    #visualize_predictions(model_small, testset, testloader, device, "Small Model")
 
 
 main()

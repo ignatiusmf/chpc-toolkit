@@ -133,7 +133,7 @@ def main():
     testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=data_transforms, download=True)
     testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
 
-    model_teacher= LargeCNN().to(device)
+    model_teacher = LargeCNN().to(device)
     model_small = SmallCNN().to(device)
     model_student = SmallCNN().to(device)
 
