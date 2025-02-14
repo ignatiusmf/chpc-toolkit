@@ -10,63 +10,99 @@ import os
 import numpy as np
 import json
 
-# Define a larger CNN model
+# Define a larger CNN modelclass LargeCNN(nn.Module):
 class LargeCNN(nn.Module):
     def __init__(self):
         super(LargeCNN, self).__init__()
         self.network = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.1),
 
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
-            nn.ReLU(),
+            nn.LeakyReLU(0.1),
             nn.MaxPool2d(2, 2),
 
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
-            nn.ReLU(),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.1),
             nn.MaxPool2d(2, 2),
 
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.LeakyReLU(0.1),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(512, 1024, kernel_size=3, padding=1),
+            nn.BatchNorm2d(1024),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(1024, 1024, kernel_size=3, padding=1),
+            nn.BatchNorm2d(1024),
+            nn.LeakyReLU(0.1),
+            nn.MaxPool2d(2, 2),  
+
+            nn.AdaptiveAvgPool2d(1),  # Global pooling for better generalization
             nn.Flatten(),
 
-            nn.Linear(256 * 8 * 8, 1024),
-            nn.ReLU(),
+            nn.Linear(1024, 1024),
+            nn.LeakyReLU(0.1),
 
-            nn.Dropout(0.5),
+            nn.Dropout(0.4),
             nn.Linear(1024, 512),
-            nn.ReLU(),
+            nn.LeakyReLU(0.1),
 
-            nn.Dropout(0.5),
+            nn.Dropout(0.4),
             nn.Linear(512, 10)
         )
+
     def forward(self, x):
         return self.network(x)
+
 
 # Define a smaller CNN model
 class SmallCNN(nn.Module):
     def __init__(self):
         super(SmallCNN, self).__init__()
         self.network = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.Conv2d(3, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
-            nn.ReLU(),
+            nn.LeakyReLU(0.1),
             nn.MaxPool2d(2, 2),
 
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.1),
+            nn.MaxPool2d(2, 2),
+
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),  
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.1),
+
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),  # Extra conv layer
+            nn.BatchNorm2d(256),
+            nn.LeakyReLU(0.1),
+            nn.MaxPool2d(2, 2),
+
+            nn.AdaptiveAvgPool2d(1),  # Replaces Flatten() + large FC layers
             nn.Flatten(),
 
-            nn.Linear(64 * 8 * 8, 256),
-            nn.ReLU(),
+            nn.Linear(256, 512),  # Increased FC layer
+            nn.LeakyReLU(0.1),
 
-            nn.Dropout(0.5),
-            nn.Linear(256, 10)
+            nn.Dropout(0.4),
+            nn.Linear(512, 10)
         )
+
     def forward(self, x):
         return self.network(x)
 
@@ -210,7 +246,7 @@ def main():
 
 
 
-    epochs = 1
+    epochs = 5
     for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
         model_large.train()
         model_small.train()
