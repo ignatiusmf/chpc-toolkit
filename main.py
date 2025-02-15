@@ -231,6 +231,9 @@ def main():
     criterion = nn.CrossEntropyLoss()
     optimizer_large = optim.Adam(model_large.parameters(), lr=0.001, weight_decay=1e-4)
     optimizer_small = optim.Adam(model_small.parameters(), lr=0.001, weight_decay=1e-4)
+    scheduler_large = optim.lr_scheduler.ReduceLROnPlateau(optimizer_large, mode='min', factor=0.1, patience=2)
+    scheduler_small = optim.lr_scheduler.ReduceLROnPlateau(optimizer_small, mode='min', factor=0.1, patience=2)
+
 
     total_params_large = sum(p.numel() for p in model_large.parameters())
     print(f"Total parameters for large model: {total_params_large:,}")
@@ -252,11 +255,10 @@ def main():
         model_small.train()
         running_loss_large = 0.0
         running_loss_small = 0.0
-        batch = 0
-        for images, labels in trainloader:
-            batch += 1
+
+        for batch, (images, labels) in enumerate(trainloader):
             if batch % math.floor((len(trainloader) / 10)) == 0 and epochs == 1:
-                print(f"Epoch {epoch+1} batch progress: {round(batch*100/len(trainloader))}% ")
+                print(f"Epoch {epoch+1} progress: {round(batch*100/len(trainloader))}% ")
 
             images, labels = images.to(device), labels.to(device)
             
@@ -275,11 +277,19 @@ def main():
             running_loss_small += loss_small.item()
 
             lossi.append([np.log10(loss_large.item()), np.log10(loss_small.item())])
-        plot_loss(lossi, trainloader)
         
         avg_loss_large = running_loss_large / len(trainloader)
         avg_loss_small = running_loss_small / len(trainloader)
         print(f"Epoch [{epoch+1}/{epochs}], LargeCNN Loss: {avg_loss_large:.4f}, SmallCNN Loss: {avg_loss_small:.4f}")
+    
+        current_lr_large = optimizer_large.param_groups[0]['lr']
+        current_lr_small = optimizer_small.param_groups[0]['lr']
+        print(f"Before LR Step -> LargeCNN LR: {current_lr_large:.6f}, SmallCNN LR: {current_lr_small:.6f}")
+
+        # Update learning rate based on validation loss
+        scheduler_large.step(avg_loss_large)
+        scheduler_small.step(avg_loss_small)
+
 
         accuracy_large = evaluate(model_large, testloader, device)
         accuracy_small = evaluate(model_small, testloader, device)
@@ -288,7 +298,7 @@ def main():
         test_accuracy.append([accuracy_large, accuracy_small])
 
 
-
+        plot_loss(lossi, trainloader)
         plot_accuracy(test_accuracy)
 
 
