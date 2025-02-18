@@ -249,7 +249,7 @@ def main():
 
 
 
-    epochs = 5
+    epochs = 100
     for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
         model_large.train()
         model_small.train()
@@ -284,7 +284,7 @@ def main():
     
         current_lr_large = optimizer_large.param_groups[0]['lr']
         current_lr_small = optimizer_small.param_groups[0]['lr']
-        print(f"Before LR Step -> LargeCNN LR: {current_lr_large:.6f}, SmallCNN LR: {current_lr_small:.6f}")
+        print(f"Before LR Step -> LargeCNN LR: {current_lr_large:.10f}, SmallCNN LR: {current_lr_small:.10f}")
 
         # Update learning rate based on validation loss
         scheduler_large.step(avg_loss_large)

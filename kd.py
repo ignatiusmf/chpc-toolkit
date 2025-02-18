@@ -230,6 +230,8 @@ def main():
 
     optimizer_student = optim.Adam(model_student.parameters(), lr=0.001, weight_decay=1e-4)
     optimizer_control = optim.Adam(model_control.parameters(), lr=0.001, weight_decay=1e-4)
+    scheduler_student = optim.lr_scheduler.ReduceLROnPlateau(optimizer_student, mode='min', factor=0.1, patience=2)
+    scheduler_control = optim.lr_scheduler.ReduceLROnPlateau(optimizer_control, mode='min', factor=0.1, patience=2)
 
     total_params_teacher = sum(p.numel() for p in model_teacher.parameters())
     print(f"Total parameters for teacher model: {total_params_teacher:,}")
@@ -247,7 +249,7 @@ def main():
     T = 4.0
     alpha = 0.7
 
-    epochs = 5
+    epochs = 100
     for epoch in range(epochs):
 
         model_student.train()
@@ -286,11 +288,20 @@ def main():
             running_loss_control += loss_control.item()
 
             lossi.append([np.log10(loss_student.item()), np.log10(loss_control.item())])
-        plot_loss(lossi, trainloader)
-
 
         loss_student, loss_control = running_loss_student / len(trainloader), running_loss_control / len(trainloader)
         print(f"Epoch [{epoch+1}/{epochs}], Student Loss: {loss_student:.4f}, Control Loss: {loss_control:.4f}")
+
+
+        current_lr_student = optimizer_student.param_groups[0]['lr']
+        current_lr_control = optimizer_control.param_groups[0]['lr']
+        print(f"Before LR Step -> StudentCNN LR: {current_lr_student:.10f}, ControlCNN LR: {current_lr_control:.10f}")
+
+        # Update learning rate based on validation loss
+        scheduler_student.step(loss_student)
+        scheduler_control.step(loss_control)
+
+
 
         acc_student = evaluate(model_student, testloader, device)
         acc_control = evaluate(model_control, testloader, device)
@@ -299,6 +310,7 @@ def main():
         test_accuracy.append([acc_student, acc_control])
 
         plot_accuracy(test_accuracy)
+        plot_loss(lossi, trainloader)
 
         save_checkpoint(model_student, optimizer_student, epoch + 1, "checkpoint/KD_student.pth")
         save_checkpoint(model_control, optimizer_control, epoch + 1, "checkpoint/KD_control.pth")
