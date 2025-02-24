@@ -1,4 +1,0 @@
-Ideal job running
-- Should zip the checkpoint file, and also include information such as the git commit the experiment was run on
-    - Limitation: Moet dan op n sekere git commit run, en kan nie met new changes run nie, anders is daai feature useless
-- Meer verbose logging, so wanneer die test set gebruik word, save die spesifieke examples wat hy verkeerd gekry het 

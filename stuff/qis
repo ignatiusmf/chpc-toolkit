@@ -1,3 +1,0 @@
-#!/bin/sh
-
-qsub -I -P CSCI1166 -q gpu_1 -l select=1:ncpus=10:mem=64gb:ngpus=1
