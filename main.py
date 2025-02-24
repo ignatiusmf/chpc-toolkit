@@ -206,7 +206,7 @@ def evaluate(model, dataloader, device):
             correct += (preds == labels).sum().item()
             total += labels.size(0)
     accuracy = correct / total * 100
-    return accuracy
+    return accuracy, total
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -247,9 +247,7 @@ def main():
 
     test_accuracy = load_acc("checkpoint/test_acc.json")
 
-
-
-    epochs = 100
+    epochs = 5
     for epoch in range(max(start_epoch_large, start_epoch_small), epochs):
         model_large.train()
         model_small.train()
@@ -291,10 +289,10 @@ def main():
         scheduler_small.step(avg_loss_small)
 
 
-        accuracy_large = evaluate(model_large, testloader, device)
-        accuracy_small = evaluate(model_small, testloader, device)
-        print(f"Test Accuracy - LargeCNN: {accuracy_large:.2f}%")
-        print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}%")
+        accuracy_large, total = evaluate(model_large, testloader, device)
+        accuracy_small, _ = evaluate(model_small, testloader, device)
+        print(f"Test Accuracy - LargeCNN: {accuracy_large:.2f}% ({total=})")
+        print(f"Test Accuracy - SmallCNN: {accuracy_small:.2f}% ({total=})")
         test_accuracy.append([accuracy_large, accuracy_small])
 
 
