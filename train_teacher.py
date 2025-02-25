@@ -125,7 +125,7 @@ def plot():
     plt.close()
 
 
-print("Trianing started")
+print("Training started")
 for epoch in range(3):
     train_loss, train_accuracy = train()
     traini.append([train_loss, train_accuracy])
@@ -136,9 +136,7 @@ for epoch in range(3):
     if test_accuracy > max_acc:
         max_acc = test_accuracy
         checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': Teacher.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict()
+            'model_state_dict': Teacher.state_dict()
         }
         torch.save(checkpoint, f"checkpoint/Teacher_{epoch}_{test_accuracy:.0f}.pth")
 

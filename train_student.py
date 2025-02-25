@@ -1,254 +1,177 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-import math
-import os
-import numpy as np
-import json
+import torchvision
+import torch
+import torch.optim as optim
+import torch.nn as nn
+from models import ResNet112, ResNet56 
+import torch.nn.functional as F
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+transform_train = transforms.Compose([
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+trainset = torchvision.datasets.CIFAR10(
+    root='./data', train=True, download=True, transform=transform_train)
+trainloader = torch.utils.data.DataLoader(
+    trainset, batch_size=128, shuffle=True, num_workers=0)
+
+testset = torchvision.datasets.CIFAR10(
+    root='./data', train=False, download=True, transform=transform_test)
+testloader = torch.utils.data.DataLoader(
+    testset, batch_size=100, shuffle=False, num_workers=0)
+
+
+Teacher = ResNet112().to(device)
+checkpoint = torch.load("checkpoint/Teacher.pth", weights_only=True)
+Teacher.load_state_dict(checkpoint['model_state_dict'])
+
+Student_control = ResNet56().to(device)
+optimizer_control = optim.SGD(Student_control.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=True)
+scheduler_control = optim.lr_scheduler.CosineAnnealingLR(optimizer_control, T_max=100)
 
 
 
-def save_checkpoint(model, optimizer, epoch, filename):
-    checkpoint = {
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict()
-    }
-    torch.save(checkpoint, filename)
 
 
-def load_checkpoint(model, optimizer, filename):
-    if os.path.isfile(filename):
-        checkpoint = torch.load(filename, weights_only=True)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        if optimizer:
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        print(f"Checkpoint loaded: {filename} (Epoch {checkpoint['epoch']})")
-        return checkpoint['epoch']
-    else:
-        print("No checkpoint found, starting from scratch.")
-        return 0
 
-def save_loss(loss_data, filename):
-    with open(filename, 'w') as f:
-        json.dump(loss_data, f)
+criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 
-def load_loss(filename):
-    if os.path.isfile(filename):
-        with open(filename, 'r') as f:
-            loss_data = json.load(f)
-        print(f"Loss data loaded from {filename}")
-        return loss_data
-    else:
-        return []
 
-def save_acc(acc_data, filename):
-    with open(filename, 'w') as f:
-        json.dump(acc_data, f)
 
-def load_acc(filename):
-    if os.path.isfile(filename):
-        with open(filename, 'r') as f:
-            acc_data = json.load(f)
-        print(f"Test accuracy data loaded from {filename}")
-        return acc_data
-    else:
-        return []
+print(f"Total parameters for large model: {sum(p.numel() for p in Teacher.parameters()):,}")
+print(f"Total parameters for small model: {sum(p.numel() for p in Student_control.parameters()):,}")
 
-def evaluate(model, dataloader, device):
-    model.eval()
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for images, labels in dataloader:
-            images, labels = images.to(device), labels.to(device)
-            outputs = model(images)
-            _, preds = torch.max(outputs, 1)
-            correct += (preds == labels).sum().item()
-            total += labels.size(0)
-    return correct / total * 100
+max_acc = 0.0 ## TODO 
+loss = [[],[],[],[],[]]
+accuracy = [[],[],[],[],[]]
 
-def distillation_loss(student_logits, teacher_logits, labels, T=4.0, alpha=0.7):
+def vanilla(outputs, outputs_teacher, targets):
+    loss = criterion(outputs[3], targets)
+    return loss
+
+def logits_kd(outputs, outputs_teacher, targets, T=4.0, alpha=0.7):
     soft_targets = F.kl_div(
-        F.log_softmax(student_logits / T, dim=1),
-        F.softmax(teacher_logits / T, dim=1),
+        F.log_softmax(outputs[3] / T, dim=1),
+        F.softmax(outputs_teacher[3] / T, dim=1),
         reduction='batchmean'
     ) * (T * T)
     
-    hard_targets = F.cross_entropy(student_logits, labels)
+    hard_targets = criterion(outputs[3], targets)
     return alpha * soft_targets + (1 - alpha) * hard_targets
 
-def train_student_with_kd_and_control(model_student, model_control, model_teacher, trainloader, optimizer_student, optimizer_control, device, T=4.0, alpha=0.7):
-    model_student.train()
-    model_control.train()
-    model_teacher.eval()
-    running_loss_student = 0.0
-    running_loss_control = 0.0
-    
-    for images, labels in trainloader:
-        images, labels = images.to(device), labels.to(device)
-        
-        optimizer_student.zero_grad()
-        optimizer_control.zero_grad()
-        
+def features_kd():
+    print("yeet")
+
+def td_kd():
+    print("yeet")
+
+def image_denoise_kd():
+    print("yeet")
+
+def train(Teacher, Student, student_loss, optimizer, scheduler):
+    Teacher.eval()
+    Student.train()
+    running_loss = 0
+    correct = 0
+    total = 0
+
+    for inputs, targets in trainloader:
+        inputs, targets = inputs.to(device), targets.to(device)
+        optimizer.zero_grad()
+
+        outputs = Student(inputs)
         with torch.no_grad():
-            outputs_teacher = model_teacher(images)
-        
-        outputs_student = model_student(images)
-        outputs_control = model_control(images)
-        
-        loss_student = distillation_loss(outputs_student, outputs_teacher, labels, T, alpha)
-        loss_control = F.cross_entropy(outputs_control, labels)
-        
-        loss_student.backward()
-        optimizer_student.step()
-        
-        loss_control.backward()
-        optimizer_control.step()
-        
-        running_loss_student += loss_student.item()
-        running_loss_control += loss_control.item()
-    
-    return running_loss_student / len(trainloader), running_loss_control / len(trainloader)
+            outputs_teacher = Teacher(inputs)
 
+        loss = student_loss(outputs, outputs_teacher, targets)
+        loss.backward()
+        optimizer.step()
 
+        running_loss += loss.item()
 
-def main():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Using", device)
+        _, predicted = torch.max(outputs[3].data, 1)
+        total += targets.size(0)
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-    ])
+        correct += predicted.eq(targets.data).cpu().sum().float().item()
 
-    trainset = torchvision.datasets.CIFAR10(root="./data", train=True, transform=transform, download=True)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=True)
-    testset = torchvision.datasets.CIFAR10(root="./data", train=False, transform=transform, download=True)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=64, shuffle=False)
+    avg_loss = running_loss / len(trainloader)
+    accuracy = 100 * correct / total
 
-    model_teacher = LargeCNN().to(device)
-    model_student = SmallCNN().to(device)
-    model_control = SmallCNN().to(device)
+    print(f"Loss: {avg_loss:.3f} | Train accuracy: {accuracy:.3f}% |")
 
-    optimizer_student = optim.Adam(model_student.parameters(), lr=0.001, weight_decay=1e-4)
-    optimizer_control = optim.Adam(model_control.parameters(), lr=0.001, weight_decay=1e-4)
-    scheduler_student = optim.lr_scheduler.ReduceLROnPlateau(optimizer_student, mode='min', factor=0.1, patience=2)
-    scheduler_control = optim.lr_scheduler.ReduceLROnPlateau(optimizer_control, mode='min', factor=0.1, patience=2)
+    scheduler.step()
 
-    total_params_teacher = sum(p.numel() for p in model_teacher.parameters())
-    print(f"Total parameters for teacher model: {total_params_teacher:,}")
-    total_params_small = sum(p.numel() for p in model_student.parameters())
-    print(f"Total parameters for control / student model: {total_params_small:,}")
+    return avg_loss, accuracy
 
-    load_checkpoint(model_teacher, None, "checkpoint/large_cnn_checkpoint.pth")
-    start_epoch_large = load_checkpoint(model_student, optimizer_student, "checkpoint/KD_student.pth")
-    start_epoch_small = load_checkpoint(model_control, optimizer_control, "checkpoint/KD_control.pth")
+def test(Student):
+    Student.eval()
+    running_loss = 0
+    correct = 0
+    total = 0
 
-    lossi = load_loss("checkpoint/KD_loss.json")
+    for batch_idx, (inputs, targets) in enumerate(testloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = Student(inputs)
 
-    test_accuracy = load_acc("checkpoint/KD_test_acc.json")
+        loss = F.cross_entropy(outputs[3], targets)
+        running_loss += loss.item()
 
-    T = 4.0
-    alpha = 0.7
+        _, predicted = torch.max(outputs[3].data, 1)
 
-    epochs = 100
-    for epoch in range(epochs):
+        total += targets.size(0)
 
-        model_student.train()
-        model_control.train()
-        model_teacher.eval()
-        running_loss_student = 0.0
-        running_loss_control = 0.0
-        
-        batch = 0
-        for images, labels in trainloader:
-            batch += 1
-            if batch % math.floor((len(trainloader) / 10)) == 0 and epochs == 1:
-                print(f"Epoch {epoch+1} batch progress: {round(batch*100/len(trainloader))}% ")
+        correct += predicted.eq(targets.data).cpu().sum().float().item()
 
-            images, labels = images.to(device), labels.to(device)
-            
-            optimizer_student.zero_grad()
-            optimizer_control.zero_grad()
-            
-            with torch.no_grad():
-                outputs_teacher = model_teacher(images)
-            
-            outputs_student = model_student(images)
-            outputs_control = model_control(images)
-            
-            loss_student = distillation_loss(outputs_student, outputs_teacher, labels, T, alpha)
-            loss_control = F.cross_entropy(outputs_control, labels)
-            
-            loss_student.backward()
-            optimizer_student.step()
-            
-            loss_control.backward()
-            optimizer_control.step()
-            
-            running_loss_student += loss_student.item()
-            running_loss_control += loss_control.item()
+    avg_loss = running_loss / len(testloader)
+    accuracy = 100 * correct / total
+    print(f"Loss: {avg_loss:.3f} | Test accuracy: {accuracy:.3f}% |")
 
-            lossi.append([np.log10(loss_student.item()), np.log10(loss_control.item())])
+    return avg_loss, accuracy
 
-        loss_student, loss_control = running_loss_student / len(trainloader), running_loss_control / len(trainloader)
-        print(f"Epoch [{epoch+1}/{epochs}], Student Loss: {loss_student:.4f}, Control Loss: {loss_control:.4f}")
+import matplotlib.pyplot as plt
+import numpy as np
+def plot():
+    tei = np.array(testi)
 
+    plt.plot(np.log10(tei[1:,0]), label="Test loss") # np.log10(tei[:,0])
 
-        current_lr_student = optimizer_student.param_groups[0]['lr']
-        current_lr_control = optimizer_control.param_groups[0]['lr']
-        print(f"Before LR Step -> StudentCNN LR: {current_lr_student:.10f}, ControlCNN LR: {current_lr_control:.10f}")
-
-        # Update learning rate based on validation loss
-        scheduler_student.step(loss_student)
-        scheduler_control.step(loss_control)
-
-
-
-        acc_student = evaluate(model_student, testloader, device)
-        acc_control = evaluate(model_control, testloader, device)
-        print(f"Test Accuracy - StudentCNN: {acc_student:.2f}%")
-        print(f"Test Accuracy - ControlCNN: {acc_control:.2f}%")
-        test_accuracy.append([acc_student, acc_control])
-
-        plot_accuracy(test_accuracy)
-        plot_loss(lossi, trainloader)
-
-        save_checkpoint(model_student, optimizer_student, epoch + 1, "checkpoint/KD_student.pth")
-        save_checkpoint(model_control, optimizer_control, epoch + 1, "checkpoint/KD_control.pth")
-        save_loss(lossi, "checkpoint/KD_loss.json")
-        save_acc(test_accuracy, "checkpoint/KD_test_acc.json")
-
-
-    print("Training complete.")
-
-def plot_loss(loss,loader):
-    lossi = np.array(loss)
-
-    plt.plot(np.convolve(lossi[:,0], np.ones(100)/100, mode='valid'), label="Student")
-    plt.plot(np.convolve(lossi[:,1], np.ones(100)/100, mode='valid'), label="Control")
-    for x in range(0, len(lossi[:,0]), len(loader)):
-        plt.axvline(x=x, color='gray', linestyle='--',linewidth=0.5)
-
-    plt.xlabel("Batch")
+    plt.xlabel("Epoch")
     plt.ylabel("Log Loss")
     plt.legend()
-    plt.savefig("logs/KD_Loss.png")
+    plt.savefig("logs/Loss.png")
     plt.close()
 
-def plot_accuracy(accuracy):
-    test_accuracy = np.array(accuracy)
-    plt.plot(test_accuracy[:,0], label="StudentCNN Accuracy")
-    plt.plot(test_accuracy[:,1], label="ControlCNN Accuracy")
+    plt.plot(tei[1:,1], label="Test Accuracy")
     plt.xlabel("Epoch")
     plt.ylabel("Test Accuracy")
     plt.legend()
-    plt.savefig("logs/KD_test_acc.png")
+    plt.savefig("logs/Accuracy.png")
     plt.close()
 
-main()
+print("Teacher test", test(Teacher))
+print("Training started")
+for epoch in range(3):
+    train_loss, train_accuracy = train(Teacher, Student_control, vanilla_loss, optimizer_control, scheduler_control)
+    test_loss, test_accuracy = test(Student_control)
+    plot()
+
+    if test_accuracy > max_acc: ## TODO
+        max_acc = test_accuracy
+        checkpoint = {
+            'model_state_dict': Student_control.state_dict(),
+        }
+        torch.save(checkpoint, f"checkpoint/Student_{epoch}_{test_accuracy:.0f}.pth")
+
+
+
+
