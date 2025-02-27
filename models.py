@@ -67,11 +67,15 @@ class ResNet_simple(nn.Module):
         attention_map.append(out)
         return attention_map
 
-def ResNet112():
-    return ResNet_simple(BasicBlock, [18,18,18])
+def ResNet112(num_classes=10):
+    return ResNet_simple(BasicBlock, [18,18,18],num_classes=num_classes)
 
 def ResNet56():
     return ResNet_simple(BasicBlock, [9,9,9])
 
-def ResNet20():
-    return ResNet_simple(BasicBlock, [3,3,3])
+def ResNet20(num_classes=10):
+    return ResNet_simple(BasicBlock, [3,3,3],num_classes=num_classes)
+
+
+def ResNetBaby(num_classes=10):
+    return ResNet_simple(BasicBlock, [1,1,1],num_classes=num_classes)

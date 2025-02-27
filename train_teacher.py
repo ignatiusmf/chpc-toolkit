@@ -3,7 +3,7 @@ import torchvision
 import torch
 import torch.optim as optim
 import torch.nn as nn
-from models import ResNet112
+from models import ResNet112, ResNet20
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -19,21 +19,20 @@ transform_test = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
-trainset = torchvision.datasets.CIFAR10(
+trainset = torchvision.datasets.CIFAR100(
     root='./data', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=128, shuffle=True, num_workers=0)
 
-testset = torchvision.datasets.CIFAR10(
+testset = torchvision.datasets.CIFAR100(
     root='./data', train=False, download=True, transform=transform_test)
 testloader = torch.utils.data.DataLoader(
     testset, batch_size=100, shuffle=False, num_workers=0)
 
-
-Teacher = ResNet112().to(device)
+Teacher = ResNet20(100).to(device)
 
 optimizer = optim.SGD(Teacher.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=True)
-scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=150)
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 criterion_test = nn.CrossEntropyLoss()
 print(f"Total parameters for large model: {sum(p.numel() for p in Teacher.parameters()):,}")
@@ -126,19 +125,21 @@ def plot():
 
 
 print("Training started")
-for epoch in range(3):
+for epoch in range(150):
+    print(f'{epoch=}')
     train_loss, train_accuracy = train()
     traini.append([train_loss, train_accuracy])
     test_loss, test_accuracy = test()
     testi.append([test_loss, test_accuracy])
     plot()
 
+
     if test_accuracy > max_acc:
         max_acc = test_accuracy
         checkpoint = {
             'model_state_dict': Teacher.state_dict()
         }
-        torch.save(checkpoint, f"checkpoint/Teacher_{epoch}_{test_accuracy:.0f}.pth")
+        torch.save(checkpoint, f"checkpoint/RN112_C100_E150_{epoch}_{test_accuracy:.0f}_CA.pth")
 
 
 
