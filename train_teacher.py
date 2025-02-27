@@ -63,8 +63,7 @@ def train():
 
         correct += predicted.eq(targets.data).cpu().sum().float().item()
 
-    current_lr = optimizer.param_groups[0]['lr']
-    print(f"Learning rate for previous epoch: {current_lr:.10f}")
+    print(f"Learning rate for previous epoch: {optimizer.param_groups[-1]['lr']:.10f}")
 
     avg_loss = running_loss / len(trainloader)
     accuracy = 100 * correct / total
