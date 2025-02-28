@@ -70,12 +70,11 @@ class ResNet_simple(nn.Module):
 def ResNet112(num_classes=10):
     return ResNet_simple(BasicBlock, [18,18,18],num_classes=num_classes)
 
-def ResNet56():
-    return ResNet_simple(BasicBlock, [9,9,9])
+def ResNet56(num_classes=10):
+    return ResNet_simple(BasicBlock, [9,9,9],num_classes=num_classes)
 
 def ResNet20(num_classes=10):
     return ResNet_simple(BasicBlock, [3,3,3],num_classes=num_classes)
-
 
 def ResNetBaby(num_classes=10):
     return ResNet_simple(BasicBlock, [1,1,1],num_classes=num_classes)

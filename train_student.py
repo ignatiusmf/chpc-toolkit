@@ -3,7 +3,7 @@ import torchvision
 import torch
 import torch.optim as optim
 import torch.nn as nn
-from models import ResNet112, ResNet56, ResNetBaby, ResNet20
+from models import ResNet112, ResNet56, ResNet20, ResNetBaby
 import torch.nn.functional as F
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,25 +23,25 @@ transform_test = transforms.Compose([
 trainset = torchvision.datasets.CIFAR100(
     root='./data', train=True, download=True, transform=transform_train)
 trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=128, shuffle=True, num_workers=0)
+    trainset, batch_size=128, shuffle=True, num_workers=4)
 
 testset = torchvision.datasets.CIFAR100(
     root='./data', train=False, download=True, transform=transform_test)
 testloader = torch.utils.data.DataLoader(
-    testset, batch_size=100, shuffle=False, num_workers=0)
+    testset, batch_size=100, shuffle=False, num_workers=4)
 
 
-Teacher = ResNetBaby(100).to(device)
-# checkpoint = torch.load("checkpoint/Teacher.pth", weights_only=True)
-# Teacher.load_state_dict(checkpoint['model_state_dict'])
+Teacher = ResNet112(100).to(device)
+checkpoint = torch.load("checkpoint/Teacher.pth", weights_only=True)
+Teacher.load_state_dict(checkpoint['model_state_dict'])
 
-Student_vanilla = ResNetBaby(100).to(device)
-optimizer_vanilla = optim.SGD(Student_vanilla.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=True)
-scheduler_vanilla = optim.lr_scheduler.CosineAnnealingLR(optimizer_vanilla, T_max=100)
+Student_vanilla = ResNet56(100).to(device)
+optimizer_vanilla = optim.SGD(Student_vanilla.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
+scheduler_vanilla = optim.lr_scheduler.CosineAnnealingLR(optimizer_vanilla, T_max=150)
 
-Student_logits_kd = ResNetBaby(100).to(device)
-optimizer_logits_kd = optim.SGD(Student_logits_kd.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=True)
-scheduler_logits_kd = optim.lr_scheduler.CosineAnnealingLR(optimizer_logits_kd, T_max=100)
+Student_logits_kd = ResNet56(100).to(device)
+optimizer_logits_kd = optim.SGD(Student_logits_kd.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
+scheduler_logits_kd = optim.lr_scheduler.CosineAnnealingLR(optimizer_logits_kd, T_max=150)
 
 
 
@@ -60,7 +60,7 @@ def vanilla(outputs, outputs_teacher, targets):
     loss = criterion(outputs[3], targets)
     return loss
 
-def logits_kd(outputs, outputs_teacher, targets, T=4.0, alpha=0.7):
+def logits_kd(outputs, outputs_teacher, targets, T=2.0, alpha=0.9):
     soft_targets = F.kl_div(
         F.log_softmax(outputs[3] / T, dim=1),
         F.softmax(outputs_teacher[3] / T, dim=1),
@@ -231,7 +231,7 @@ def model_trainer(model_name):
 
 
 
-for epoch in range(10):
+for epoch in range(150):
     print(f'{epoch=}')
     model_trainer("vanilla")
     model_trainer("logits_kd")
