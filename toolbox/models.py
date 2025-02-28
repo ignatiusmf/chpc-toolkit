@@ -31,7 +31,7 @@ class BasicBlock(nn.Module):
 
 
 class ResNet_simple(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10):
+    def __init__(self, block, num_blocks, num_classes=10,model_type="unset"):
         super(ResNet_simple, self).__init__()
         self.in_planes = 16
 
@@ -43,6 +43,9 @@ class ResNet_simple(nn.Module):
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
         #self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
         self.linear = nn.Linear(64*block.expansion, num_classes)
+
+        self.model_type = model_type
+
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
@@ -68,13 +71,21 @@ class ResNet_simple(nn.Module):
         return attention_map
 
 def ResNet112(num_classes=10):
-    return ResNet_simple(BasicBlock, [18,18,18],num_classes=num_classes)
+    model = ResNet_simple(BasicBlock, [18,18,18],num_classes=num_classes,model_type='ResNet112')
+    print(f"Total parameters for ResNet112: {sum(p.numel() for p in model.parameters()):,}")
+    return model
 
 def ResNet56(num_classes=10):
-    return ResNet_simple(BasicBlock, [9,9,9],num_classes=num_classes)
+    model = ResNet_simple(BasicBlock, [9,9,9],num_classes=num_classes,model_type='ResNet56')
+    print(f"Total parameters for ResNet56: {sum(p.numel() for p in model.parameters()):,}")
+    return model
 
 def ResNet20(num_classes=10):
-    return ResNet_simple(BasicBlock, [3,3,3],num_classes=num_classes)
+    model = ResNet_simple(BasicBlock, [3,3,3],num_classes=num_classes,model_type='ResNet20')
+    print(f"Total parameters for ResNet20: {sum(p.numel() for p in model.parameters()):,}")
+    return model
 
 def ResNetBaby(num_classes=10):
-    return ResNet_simple(BasicBlock, [1,1,1],num_classes=num_classes)
+    model = ResNet_simple(BasicBlock, [1,1,1],num_classes=num_classes,model_type='ResNetBaby')
+    print(f"Total parameters for ResNetBaby: {sum(p.numel() for p in model.parameters()):,}")
+    return model

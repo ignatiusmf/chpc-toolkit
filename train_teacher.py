@@ -3,35 +3,16 @@ import torchvision
 import torch
 import torch.optim as optim
 import torch.nn as nn
-from models import ResNet112, ResNet20
+from toolbox.models import ResNet112, ResNet20
+from toolbox.data_loader import get_loaders
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = 'cuda'
 
-transform_train = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
-transform_test = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-])
-
-trainset = torchvision.datasets.CIFAR100(
-    root='./data', train=True, download=True, transform=transform_train)
-trainloader = torch.utils.data.DataLoader(
-    trainset, batch_size=128, shuffle=True, num_workers=0)
-
-testset = torchvision.datasets.CIFAR100(
-    root='./data', train=False, download=True, transform=transform_test)
-testloader = torch.utils.data.DataLoader(
-    testset, batch_size=100, shuffle=False, num_workers=0)
+trainloader, testloader = get_loaders('cifar100', 0)
 
 Teacher = ResNet20(100).to(device)
 
-optimizer = optim.SGD(Teacher.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4, nesterov=True)
+optimizer = optim.SGD(Teacher.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=150)
 criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
 criterion_test = nn.CrossEntropyLoss()
