@@ -70,22 +70,22 @@ class ResNet_simple(nn.Module):
         attention_map.append(out)
         return attention_map
 
-def ResNet112(num_classes=10):
-    model = ResNet_simple(BasicBlock, [18,18,18],num_classes=num_classes,model_type='ResNet112')
-    print(f"Total parameters for ResNet112: {sum(p.numel() for p in model.parameters()):,}")
+def ResNet112(num_classes=10,model_type='ResNet112'):
+    model = ResNet_simple(BasicBlock, [18,18,18],num_classes=num_classes,model_type=model_type)
+    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model
 
-def ResNet56(num_classes=10):
-    model = ResNet_simple(BasicBlock, [9,9,9],num_classes=num_classes,model_type='ResNet56')
-    print(f"Total parameters for ResNet56: {sum(p.numel() for p in model.parameters()):,}")
+def ResNet56(num_classes=10,model_type='ResNet56'):
+    model = ResNet_simple(BasicBlock, [9,9,9],num_classes=num_classes,model_type=model_type)
+    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model
 
-def ResNet20(num_classes=10):
-    model = ResNet_simple(BasicBlock, [3,3,3],num_classes=num_classes,model_type='ResNet20')
-    print(f"Total parameters for ResNet20: {sum(p.numel() for p in model.parameters()):,}")
+def ResNet20(num_classes=10,model_type='ResNet20'):
+    model = ResNet_simple(BasicBlock, [3,3,3],num_classes=num_classes,model_type=model_type)
+    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model
 
-def ResNetBaby(num_classes=10):
-    model = ResNet_simple(BasicBlock, [1,1,1],num_classes=num_classes,model_type='ResNetBaby')
-    print(f"Total parameters for ResNetBaby: {sum(p.numel() for p in model.parameters()):,}")
+def ResNetBaby(num_classes=10,model_type='ResNetBaby'):
+    model = ResNet_simple(BasicBlock, [1,1,1],num_classes=num_classes,model_type=model_type)
+    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model

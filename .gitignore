@@ -1,5 +1,5 @@
 data/*
 logs/*
-checkpoint/*
-*__pycache__*
 experiments/*
+models/*
+*__pycache__*
