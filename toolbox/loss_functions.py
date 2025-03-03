@@ -1,24 +1,66 @@
 
 import torch.nn.functional as F
 
-def vanilla(student, teacher, targets):
-    loss = F.cross_entropy(student[3], targets, label_smoothing=0.1)
+def vanilla(student_outputs, teacher_outputs, targets):
+    loss = F.cross_entropy(student_outputs[3], targets, label_smoothing=0.1)
     return loss
 
-def logits_kd(student, teacher, targets):
+def logits_kd(student_outputs, teacher_outputs, targets):
     T = 2.0
     alpha = 0.9
     soft_targets = F.kl_div(
-        F.log_softmax(student[3] / T, dim=1),
-        F.softmax(teacher[3] / T, dim=1),
+        F.log_softmax(student_outputs[3] / T, dim=1),
+        F.softmax(teacher_outputs[3] / T, dim=1),
         reduction='batchmean'
     ) * (T * T)
     
-    hard_targets = F.cross_entropy(student[3], targets)
+    hard_targets = F.cross_entropy(student_outputs[3], targets)
     return alpha * soft_targets + (1 - alpha) * hard_targets
 
-def features_kd():
+
+
+
+
+def factor_transfer_kd(student_outputs, teacher_outputs, targets):
     print("yeet")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def td_kd():
     print("yeet")
@@ -38,6 +80,8 @@ def Vanilla():
 def Logits_KD():
     return LossFunction(logits_kd, 'logits_kd')
 
+def Factor_Transfer_KD():
+    return LossFunction(factor_transfer_kd, 'factor_transfer_kd')
 
 
 

@@ -7,7 +7,7 @@ import pickle
 from pathlib import Path
 device = 'cuda'
 
-def get_path(experiment_name, ):
+def get_path(experiment_name):
     experiment_folder = Path(f'experiments/{experiment_name}')
     experiment_folder.mkdir(parents=True, exist_ok=True)
     existing_folders = [int(f.name) for f in experiment_folder.iterdir() if f.is_dir() and f.name.isdigit()]
@@ -36,7 +36,7 @@ class ModelLoader:
             self.teacher = teacher(self.data.class_num).to(device)
             self.name = f'{self.data.name}_{self.teacher.model_type}_{self.student.model_type}_{self.distillation.name}_{epochs}'
             checkpoint = torch.load(f'models/{self.data.name}_{self.teacher.model_type}.pth', weights_only=True)
-            self.teacher.load_state_dict(checkpoint['weights']) # TODO Change to 'weights'
+            self.teacher.load_state_dict(checkpoint['model_state_dict']) # TODO Change to 'weights'
         else:
             assert self.distillation.name == 'vanilla'
             self.teacher = None

@@ -41,3 +41,7 @@ model.complete()
 
 
 # What teacher should it load when you specify, e.g., ResNet112? SHould it choose one automatically or should you manually move models to a sepicf placy??
+
+
+
+# Time how long an epoch takes and add that to the model object
