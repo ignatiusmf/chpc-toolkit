@@ -50,9 +50,9 @@ expirement_small_name, path = get_path(experiment_name, expirement_small_name)
 
 ################## FACTOR TRANSFER INITIALIZATION ##################
 
-Paraphraser_Epochs = 1
+Paraphraser_Epochs = 10
 paraphraser_compression = 0.5
-train_paraphraser = True
+train_paraphraser = False
 
 Paraphraser = Paraphraser(64, int(round(64*paraphraser_compression))).to(device)
 paraphraser_optimizer = optim.SGD(Paraphraser.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
@@ -60,7 +60,9 @@ paraphraser_scheduler = optim.lr_scheduler.CosineAnnealingLR(paraphraser_optimiz
 criterion = nn.L1Loss()
 
 if not train_paraphraser:
-    checkpoint = torch.load(f'{path}/paraphraser.pth')
+    p = f'{path}/paraphraser.pth'
+    checkpoint = torch.load(p, weights_only=True)
+    print(f'Loaded {p}')
 else:
     for epoch in range(Paraphraser_Epochs):
         print(f'{epoch=}')
@@ -80,7 +82,7 @@ else:
         print('Loss: %.3f | ' % (train_loss / (b_idx + 1)))
         paraphraser_scheduler.step()
         checkpoint = {'weights': Paraphraser.state_dict()}
-        torch.save(checkpoint, f'path/paraphraser.pth')
+        torch.save(checkpoint, f'{path}/paraphraser.pth')
 
 ################## FACTOR TRANSFER TRAINING ##################
 
@@ -101,13 +103,14 @@ def eval():
         total += targets.size(0)
         correct += predicted.eq(targets.data).cpu().sum().float().item()
         b_idx = batch_idx
-    print('Loss: %.3f | Acc net: %.3f%%' % (train_loss / (b_idx + 1), 100. * correct / total))
+    print('Loss: %.3f | Acc net: %.3f%%' % (val_loss / (b_idx + 1), 100. * correct / total))
     return val_loss / (b_idx + 1),  correct / total
 
 def FT(x):
     return F.normalize(x.view(x.size(0), -1))
 
 for epoch in range(Epochs):
+    print(f'{epoch=}')
     Teacher.eval()
     Paraphraser.eval()
     Student.train()
@@ -128,8 +131,7 @@ for epoch in range(Epochs):
         factor_t = Paraphraser(teacher_outputs[2],1);
         factor_s = Translator(student_outputs[2]);
 
-        loss = BETA * (criterion(FT(factor_s), FT(factor_t.detach()))) \
-               + criterion_CE(student_outputs[3], targets)
+        loss = BETA * (criterion(FT(factor_s), FT(factor_t.detach()))) + criterion_CE(student_outputs[3], targets)
         ###################################################################################
         loss.backward()
         optimizer.step()
