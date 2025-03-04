@@ -83,5 +83,6 @@ def Logits_KD():
 def Factor_Transfer_KD():
     return LossFunction(factor_transfer_kd, 'factor_transfer_kd')
 
-
+def TD_KD():
+    return LossFunction(td_kd, 'td_kd')
 

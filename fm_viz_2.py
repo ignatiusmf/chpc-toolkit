@@ -9,7 +9,7 @@ from toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
 def visualize_feature_maps(model112, model56, model20, modelbaby, data_helper, num):
     # Set all models to evaluation mode and move to cuda
     models = [model112, model56, model20, modelbaby]
-    model_names = ['ResNet112', 'ResNet56', 'ResNet20', 'ResNetBaby']
+    model_names = ['ResNet112', 'ResNet112', 'ResNet112', 'ResNet112']
     for model in models:
         model.eval()
         model = model.to('cuda')
@@ -112,24 +112,28 @@ def eval(model, data):
     accuracy = 100 * correct / total
     print(f'TEST | Loss: {avg_loss:.3f} | Acc: {accuracy:.2f} |')
 
-def load_model(Model, Data):
+def load_model(Model, Data, number):
     loaded_model = Model(Data.class_num).to(device)
-    checkpoint = torch.load(f'models/{Data.name}_{loaded_model.model_type}.pth', weights_only=True)
+    checkpoint = torch.load(f'models/Cifar100_ResNet112_150/{number}/weights.pth', weights_only=True)
     loaded_model.load_state_dict(checkpoint['weights']) 
     return loaded_model
 
 def main():
     # Create model and data helper
     Data = Cifar100()  # Using your Cifar10 function
-    resnet112 = load_model(ResNet112, Data)
-    resnet56 = load_model(ResNet56, Data)
-    resnet20 = load_model(ResNet20, Data)
-    resnetbaby = load_model(ResNetBaby, Data)
+    resnet112_1 = load_model(ResNet112, Data, 1)
+    resnet112_2 = load_model(ResNet112, Data, 2)
+    resnet112_3 = load_model(ResNet112, Data, 3)
+    resnet112_4 = load_model(ResNet112, Data, 4)
 
-    eval(resnet112, Data)
+
+    eval(resnet112_1, Data)
+    eval(resnet112_2, Data)
+    eval(resnet112_3, Data)
+    eval(resnet112_4, Data)
     # Visualize feature maps
     for i in range(10):  # For the first ten examples in the dataset
-        visualize_feature_maps(resnet112, resnet56, resnet20, resnetbaby, Data, i)
+        visualize_feature_maps(resnet112_1, resnet112_2, resnet112_3, resnet112_4, Data, i)
 
 if __name__ == "__main__":
-    main()
+    main() # VIZ FOR SAME MODEL BUT DIFFEENT OF THE SAME MODEL
