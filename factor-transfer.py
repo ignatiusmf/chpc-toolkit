@@ -3,7 +3,7 @@ from toolbox.loss_functions import Vanilla, Logits_KD, Factor_Transfer_KD
 from toolbox.data_loader import Cifar10, Cifar100
 
 from toolbox.factor_transfer_components import Paraphraser, Translator
-from toolbox.utils import get_path
+from toolbox.utils import get_path, plot_the_things
 
 import torch
 import torch.optim as optim
@@ -19,7 +19,7 @@ Student = ResNet56
 Teacher = ResNet112
 Distillation = Factor_Transfer_KD 
 
-expirement_small_name = 'test' 
+expirement_small_name = None
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
@@ -31,7 +31,7 @@ Student = Student(Data.class_num).to(device)
 Teacher = Teacher(Data.class_num).to(device)
 
 checkpoint = torch.load(f'models/{Data.name}_{Teacher.model_type}.pth', weights_only=True)
-Teacher.load_state_dict(checkpoint['model_state_dict'])
+Teacher.load_state_dict(checkpoint['weights'])
 
 optimizer = optim.SGD(Student.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=Epochs)
@@ -52,37 +52,31 @@ expirement_small_name, path = get_path(experiment_name, expirement_small_name)
 
 Paraphraser_Epochs = 10
 paraphraser_compression = 0.5
-train_paraphraser = False
 
 Paraphraser = Paraphraser(64, int(round(64*paraphraser_compression))).to(device)
 paraphraser_optimizer = optim.SGD(Paraphraser.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 paraphraser_scheduler = optim.lr_scheduler.CosineAnnealingLR(paraphraser_optimizer, T_max=Paraphraser_Epochs)
 criterion = nn.L1Loss()
 
-if not train_paraphraser:
-    p = f'{path}/paraphraser.pth'
-    checkpoint = torch.load(p, weights_only=True)
-    print(f'Loaded {p}')
-else:
-    for epoch in range(Paraphraser_Epochs):
-        print(f'{epoch=}')
-        Teacher.eval()
-        Paraphraser.train()
-        train_loss, correct, total = 0, 0, 0
-        for batch_idx, (inputs, targets) in enumerate(trainloader):
-            inputs, targets = inputs.to(device), targets.to(device)
-            paraphraser_optimizer.zero_grad()
-            outputs= Teacher(inputs)
-            output_p = Paraphraser(outputs[2],0)
-            loss = criterion(output_p, outputs[2].detach())
-            loss.backward()
-            paraphraser_optimizer.step()
-            train_loss += loss.item()
-            b_idx = batch_idx
-        print('Loss: %.3f | ' % (train_loss / (b_idx + 1)))
-        paraphraser_scheduler.step()
-        checkpoint = {'weights': Paraphraser.state_dict()}
-        torch.save(checkpoint, f'{path}/paraphraser.pth')
+for epoch in range(Paraphraser_Epochs):
+    print(f'{epoch=}')
+    Teacher.eval()
+    Paraphraser.train()
+    train_loss, correct, total = 0, 0, 0
+    for batch_idx, (inputs, targets) in enumerate(trainloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        paraphraser_optimizer.zero_grad()
+        outputs= Teacher(inputs)
+        output_p = Paraphraser(outputs[2],0)
+        loss = criterion(output_p, outputs[2].detach())
+        loss.backward()
+        paraphraser_optimizer.step()
+        train_loss += loss.item()
+        b_idx = batch_idx
+    print('Loss: %.3f | ' % (train_loss / (b_idx + 1)))
+    paraphraser_scheduler.step()
+    checkpoint = {'weights': Paraphraser.state_dict()}
+    torch.save(checkpoint, f'{path}/paraphraser.pth')
 
 ################## FACTOR TRANSFER TRAINING ##################
 

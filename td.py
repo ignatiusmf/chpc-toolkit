@@ -2,7 +2,7 @@ from toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
 from toolbox.loss_functions import Vanilla, Logits_KD, Factor_Transfer_KD, TD_KD
 from toolbox.data_loader import Cifar10, Cifar100
 
-from toolbox.utils import get_path
+from toolbox.utils import get_path, plot_the_things
 
 import torch
 import torch.optim as optim
@@ -18,7 +18,7 @@ Student = ResNet56
 Teacher = ResNet112
 Distillation = TD_KD 
 
-expirement_small_name = 'test' 
+expirement_small_name = None
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
@@ -126,7 +126,7 @@ for epoch in range(Epochs):
 
     eval()
 
-
+    plot_the_things(train_loss, test_loss, train_acc, test_acc, experiment_name, expirement_small_name, path)
 
 
 
