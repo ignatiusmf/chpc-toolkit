@@ -4,8 +4,8 @@
 #PBS -P CSCI1166
 #PBS -l select=1:ncpus=10:mpiprocs=10:mem=32gb:ngpus=1
 #PBS -l walltime=02:00:00
-#PBS -o /mnt/lustre/users/iferreira/chpc-toolkit/logs/standard.out
-#PBS -e /mnt/lustre/users/iferreira/chpc-toolkit/logs/error.out
+#PBS -o /mnt/lustre/users/iferreira/chpc-toolkit/logs/ft-standard.out
+#PBS -e /mnt/lustre/users/iferreira/chpc-toolkit/logs/ft-error.out
 #PBS -m abe -M u25755422@tuks.co.za
 
 ulimit -s unlimited

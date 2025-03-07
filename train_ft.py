@@ -16,10 +16,10 @@ import numpy as np
 device = 'cuda'
 
 ################## SPECIFY SETTINGS ######################
-Epochs = 2 
+Epochs = 150 
 Data = Cifar100
-Student = ResNetBaby
-Teacher = ResNetBaby
+Student = ResNet56
+Teacher = ResNet112
 
 expirement_small_name = None
 
