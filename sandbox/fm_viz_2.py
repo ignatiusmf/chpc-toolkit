@@ -1,8 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-from toolbox.data_loader import Cifar10, Cifar100
-from toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
+from sandbox.toolbox.data_loader import Cifar10, Cifar100
+from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
 
 # Assuming your ResNet code and DataHelper code are available
 
@@ -127,10 +127,10 @@ def main():
     resnet112_4 = load_model(ResNet112, Data, 4)
 
 
-    eval(resnet112_1, Data)
-    eval(resnet112_2, Data)
-    eval(resnet112_3, Data)
-    eval(resnet112_4, Data)
+    # eval(resnet112_1, Data)
+    # eval(resnet112_2, Data)
+    # eval(resnet112_3, Data)
+    # eval(resnet112_4, Data)
     # Visualize feature maps
     for i in range(10):  # For the first ten examples in the dataset
         visualize_feature_maps(resnet112_1, resnet112_2, resnet112_3, resnet112_4, Data, i)
