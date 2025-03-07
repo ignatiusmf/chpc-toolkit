@@ -12,15 +12,12 @@ ulimit -s unlimited
 module load chpc/python/anaconda/3-2021.11
 source /mnt/lustre/users/iferreira/myenv/bin/activate
 
-
-
 date
-echo -e 'Running python /mnt/lustre/users/iferreira/chpc-toolkit/td.py\n'
-
+echo -e 'Running python /mnt/lustre/users/iferreira/chpc-toolkit/train_kd.py\n'
 
 start_time=$(date +%s) 
 
 cd /mnt/lustre/users/iferreira/chpc-toolkit
-python /mnt/lustre/users/iferreira/chpc-toolkit/td.py
+python /mnt/lustre/users/iferreira/chpc-toolkit/train_kd.py
 
 echo -e "\nTotal execution time: $(( $(date +%s) - start_time)) seconds"

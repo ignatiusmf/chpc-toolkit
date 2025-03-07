@@ -1,5 +1,5 @@
 from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
-from sandbox.toolbox.loss_functions import Vanilla, Logits_KD, Factor_Transfer_KD
+from sandbox.toolbox.loss_functions import Factor_Transfer_KD
 from sandbox.toolbox.data_loader import Cifar10, Cifar100
 
 from sandbox.toolbox.factor_transfer_components import Paraphraser, Translator
@@ -20,21 +20,23 @@ Epochs = 2
 Data = Cifar100
 Student = ResNetBaby
 Teacher = ResNetBaby
-Distillation = Factor_Transfer_KD 
 
 expirement_small_name = None
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
-Distillation = Distillation()
+Distillation = Factor_Transfer_KD()
 
 trainloader, testloader = Data.trainloader, Data.testloader
 
 Student = Student(Data.class_num).to(device)
 Teacher = Teacher(Data.class_num).to(device)
-
 checkpoint = torch.load(f'models/{Data.name}_{Teacher.model_type}.pth', weights_only=True)
 Teacher.load_state_dict(checkpoint['weights'])
+
+experiment_name = f'{Data.name}/{Student.model_type}_{Teacher.model_type}/{Distillation.name}'
+expirement_small_name, path = get_path(experiment_name, expirement_small_name)
+model_name = f'{Data.name}_{Student.model_type}'
 
 optimizer = optim.SGD(Student.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=Epochs)
@@ -45,10 +47,6 @@ test_loss = []
 test_acc = []
 p_loss = []
 max_acc = 0
-
-experiment_name = f'{Data.name}/{Student.model_type}_{Teacher.model_type}/{Distillation.name}'
-expirement_small_name, path = get_path(experiment_name, expirement_small_name)
-model_name = f'{Data.name}_{Student.model_type}'
 
 ################## FACTOR TRANSFER INITIALIZATION ##################
 

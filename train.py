@@ -1,5 +1,5 @@
 from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
-from sandbox.toolbox.loss_functions import Vanilla, Logits_KD
+from sandbox.toolbox.loss_functions import Vanilla
 from sandbox.toolbox.data_loader import Cifar10, Cifar100
 from sandbox.toolbox.utils import get_path, plot_the_things, evaluate_model
 
@@ -19,20 +19,12 @@ expirement_small_name = None
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
+Distillation = Vanilla()
 
 trainloader, testloader = Data.trainloader, Data.testloader
-
 Student = Student(Data.class_num).to(device)
-if Teacher:
-    Distillation = Logits_KD()
-    Teacher = Teacher(Data.class_num).to(device)
-    checkpoint = torch.load(f'models/{Data.name}_{Teacher.model_type}.pth', weights_only=True)
-    Teacher.load_state_dict(checkpoint['weights']) 
-    experiment_name = f'{Data.name}/{Student.model_type}_{Teacher.model_type}/{Distillation.name}'
-else:
-    Distillation = Vanilla()
-    experiment_name = f'{Data.name}_{Student.model_type}'
 
+experiment_name = f'{Data.name}_{Student.model_type}'
 expirement_small_name, path = get_path(experiment_name, expirement_small_name)
 model_name = f'{Data.name}_{Student.model_type}'
 
