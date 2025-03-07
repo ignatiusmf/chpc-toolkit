@@ -23,7 +23,7 @@ Distillation = Vanilla()
 trainloader, testloader = Data.trainloader, Data.testloader
 Student = Student(Data.class_num).to(device)
 
-experiment_name = f'{Data.name}_{Student.model_type}'
+experiment_name = f'{Data.name}/{Student.model_type}'
 expirement_small_name, path = get_path(experiment_name, expirement_small_name)
 model_name = f'{Data.name}_{Student.model_type}'
 
@@ -38,17 +38,13 @@ max_acc = 0
 
 for epoch in range(Epochs):
     print(f'{epoch=}')
-    if Teacher:
-        Teacher.eval()
     Student.train()
     val_loss, correct, total = 0, 0, 0
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = Student(inputs)
-        with torch.no_grad():
-            outputs_teacher = Teacher(inputs) if Teacher else None
-        loss = Distillation.loss_function(outputs, outputs_teacher, targets)
+        loss = Distillation.loss_function(outputs, targets)
         loss.backward()
         optimizer.step()
         val_loss += loss.item()

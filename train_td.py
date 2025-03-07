@@ -18,7 +18,7 @@ device = 'cuda'
 ################## SPECIFY SETTINGS ######################
 Epochs = 150 
 Data = Cifar100
-Student = ResNetBaby 
+Student = ResNet56 
 Teacher = ResNet112
 
 expirement_small_name = None

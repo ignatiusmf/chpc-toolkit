@@ -1,7 +1,7 @@
 
 import torch.nn.functional as F
 
-def vanilla(student_outputs, teacher_outputs, targets):
+def vanilla(student_outputs, targets):
     loss = F.cross_entropy(student_outputs[3], targets, label_smoothing=0.1)
     return loss
 
@@ -23,43 +23,6 @@ def logits_kd(student_outputs, teacher_outputs, targets):
 
 def factor_transfer_kd(student_outputs, teacher_outputs, targets):
     print("yeet")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def td_kd():
