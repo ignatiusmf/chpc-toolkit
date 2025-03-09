@@ -1,7 +1,7 @@
 from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
-from sandbox.toolbox.loss_functions import Vanilla
+from sandbox.toolbox.loss_functions import Control
 from sandbox.toolbox.data_loader import Cifar10, Cifar100
-from sandbox.toolbox.utils import get_path, plot_the_things, evaluate_model
+from sandbox.toolbox.utils import get_names, plot_the_things, evaluate_model, get_settings
 
 import torch
 import torch.optim as optim
@@ -10,22 +10,21 @@ import pickle
 device = 'cuda'
 
 ################## SPECIFY SETTINGS ######################
-Epochs = 150
-Data = Cifar100
-Student = ResNet112 
+settings = get_settings()
 
-expirement_small_name = None
+Epochs = settings['Epochs']
+Data = settings['Data']
+Student = settings['Student']
+experiment_id = settings['experiment_id']
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
-Distillation = Vanilla()
+Distillation = Control()
 
 trainloader, testloader = Data.trainloader, Data.testloader
 Student = Student(Data.class_num).to(device)
 
-experiment_name = f'{Data.name}/{Student.model_type}'
-expirement_small_name, path = get_path(experiment_name, expirement_small_name)
-model_name = f'{Data.name}_{Student.model_type}'
+experiment_name, experiment_id, model_name, path = get_names(Data.name, Student.model_type, experiment_id=experiment_id) 
 
 optimizer = optim.SGD(Student.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=Epochs)
@@ -66,7 +65,7 @@ for epoch in range(Epochs):
         max_acc = ta
         torch.save({'weights': Student.state_dict()}, f'{path}/{model_name}.pth')
 
-    plot_the_things(train_loss, test_loss, train_acc, test_acc, experiment_name, expirement_small_name, path)
+    plot_the_things(train_loss, test_loss, train_acc, test_acc, experiment_name, experiment_id, path)
 
 logs = {
     'train_loss': train_loss,

@@ -1,8 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-from sandbox.toolbox.data_loader import Cifar10, Cifar100
-from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
+from toolbox.data_loader import Cifar10, Cifar100
+from toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
 
 # Assuming your ResNet code and DataHelper code are available
 

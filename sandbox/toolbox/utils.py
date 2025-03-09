@@ -1,29 +1,35 @@
 from pathlib import Path
 
-def get_path(experiment_name, experiment_small_name=None):
-    if experiment_small_name:
-        experiment_folder = Path(f'experiments/{experiment_name}/{experiment_small_name}')
+
+def get_names(data_name, student_name, teacher_name=None, distillation_name=None, experiment_id=None, scan=False):
+    if teacher_name and distillation_name:
+        experiment_name = f'{data_name}/{student_name}_{teacher_name}/{distillation_name}'
+    else:
+        assert not teacher_name
+        assert not distillation_name
+        experiment_name = f'{data_name}/{student_name}'
+    model_name = f'{data_name}_{student_name}'
+    if experiment_id:
+        experiment_folder = Path(f'experiments/{experiment_name}/{experiment_id}')
         experiment_folder.mkdir(parents=True, exist_ok=True)
         path = experiment_folder
         print(f"Using path: {path}")
-        return experiment_small_name, path
+        return experiment_name, experiment_id, model_name, path
     else:
         experiment_folder = Path(f'experiments/{experiment_name}')
         experiment_folder.mkdir(parents=True, exist_ok=True)
         existing_folders = [int(f.name) for f in experiment_folder.iterdir() if f.is_dir() and f.name.isdigit()]
-        max_folder_num = max(existing_folders, default=0)  # Default to 0 if no folders exist
+        max_folder_num = max(existing_folders, default=0)  
         if max_folder_num > 0:
-            last_folder = experiment_folder / str(max_folder_num)
-            complete_file = last_folder / "complete.txt"
-            if True: # complete_file.exists():
-                max_folder_num += 1
-                (experiment_folder / str(max_folder_num)).mkdir()
+            max_folder_num += 1
         else:
             max_folder_num = 1
-            (experiment_folder / str(max_folder_num)).mkdir()
-        path = experiment_folder / str(max_folder_num)
-        print(f"Using path: {path}")
-        return max_folder_num, path
+    if not scan:
+        print(f'{scan=}')
+        (experiment_folder / str(max_folder_num)).mkdir()
+    path = experiment_folder / str(max_folder_num)
+    print(f"Using path: {path}")
+    return experiment_name, max_folder_num, model_name, path
 
 
 import matplotlib.pyplot as plt
@@ -32,7 +38,10 @@ def plot_the_things(train_loss, test_loss, train_acc, test_acc, name, run, path)
         plt.plot(np.log10(np.array(train_loss)), linestyle='dotted',color='b', label=f'Train Loss')
         plt.plot(np.log10(np.array(test_loss)), linestyle='solid',color='b', label=f'Test Loss')
 
-        plt.title(f'{name}_{run}_Loss')
+        if run.isdigit():
+            plt.title(f'{name}_Loss')
+        else:
+            plt.title(f'{name}_{run}_Loss')
         plt.xlabel('Epoch')
         plt.ylabel('Log10 Loss')
         plt.legend()
@@ -44,7 +53,10 @@ def plot_the_things(train_loss, test_loss, train_acc, test_acc, name, run, path)
         plt.plot(np.array(train_acc), linestyle='dotted',color='r', label=f'Train Accuracy')
         plt.plot(np.array(test_acc), linestyle='solid',color='r', label=f'Test Accuracy')
 
-        plt.title(f'{name}_{run}_Accuracy')
+        if run.isdigit():
+            plt.title(f'{name}_Accuracy')
+        else:
+            plt.title(f'{name}_{run}_Accuracy')
 
         plt.xlabel('Epoch')
 
@@ -78,3 +90,47 @@ def evaluate_model(model, loader):
         b_idx = batch_idx
     print(f'TEST | Loss: {val_loss/(b_idx+1):.3f} | Acc: {100*correct/total:.3f} |')
     return val_loss/(b_idx+1), correct*100/total
+
+
+
+import argparse
+from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
+from sandbox.toolbox.data_loader import Cifar10, Cifar100
+
+DATASETS = {
+    'Cifar10': Cifar10,
+    'Cifar100': Cifar100
+}
+
+MODELS = {
+    'ResNet112': ResNet112,
+    'ResNet56': ResNet56,
+    'ResNet20': ResNet20,
+    'ResNetBaby': ResNetBaby,
+    'None': None
+}
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Run a training script with custom parameters.')
+    
+    parser.add_argument('--epochs', type=int, default=150)
+    parser.add_argument('--data', type=str, default='Cifar100', choices=DATASETS.keys())
+    parser.add_argument('--student', type=str, default='ResNet56', choices=MODELS.keys())
+    parser.add_argument('--teacher', type=str, default='None', choices=MODELS.keys())
+    parser.add_argument('--experiment-id', type=str, default=None)
+    
+    args = parser.parse_args()
+    return args
+
+from pprint import pprint
+def get_settings():
+    args = parse_args()
+    settings = {
+        'Epochs': args.epochs,
+        'Data': DATASETS[args.data].__name__, 
+        'Student': MODELS[args.student].__name__,  
+        'Teacher': MODELS[args.teacher].__name__, 
+        'experiment_id': args.experiment_id
+    }
+    pprint(settings)
+    return settings

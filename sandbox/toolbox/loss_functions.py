@@ -1,7 +1,7 @@
 
 import torch.nn.functional as F
 
-def vanilla(student_outputs, targets):
+def control(student_outputs, targets):
     loss = F.cross_entropy(student_outputs[3], targets, label_smoothing=0.1)
     return loss
 
@@ -18,12 +18,8 @@ def logits_kd(student_outputs, teacher_outputs, targets):
     return alpha * soft_targets + (1 - alpha) * hard_targets
 
 
-
-
-
 def factor_transfer_kd(student_outputs, teacher_outputs, targets):
     print("yeet")
-
 
 def td_kd():
     print("yeet")
@@ -37,15 +33,15 @@ class LossFunction:
         self.loss_function = loss_function
         self.name = name
 
-def Vanilla():
-    return LossFunction(vanilla, 'vanilla')
+def Control():
+    return LossFunction(control, 'control')
 
 def Logits_KD():
-    return LossFunction(logits_kd, 'logits_kd')
+    return LossFunction(logits_kd, 'kd')
 
 def Factor_Transfer_KD():
-    return LossFunction(factor_transfer_kd, 'factor_transfer_kd')
+    return LossFunction(factor_transfer_kd, 'ft')
 
 def TD_KD():
-    return LossFunction(td_kd, 'td_kd')
+    return LossFunction(td_kd, 'td')
 
