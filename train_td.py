@@ -1,5 +1,4 @@
 from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
-from sandbox.toolbox.loss_functions import TD_KD
 from sandbox.toolbox.data_loader import Cifar10, Cifar100
 
 from sandbox.toolbox.utils import get_names, plot_the_things, evaluate_model, get_settings

@@ -1,10 +1,10 @@
 from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
-from sandbox.toolbox.loss_functions import Control
 from sandbox.toolbox.data_loader import Cifar10, Cifar100
 from sandbox.toolbox.utils import get_names, plot_the_things, evaluate_model, get_settings
 
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 import pickle
 
 device = 'cuda'
@@ -19,7 +19,6 @@ experiment_id = settings['experiment_id']
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
-Distillation = Control()
 
 trainloader, testloader = Data.trainloader, Data.testloader
 Student = Student(Data.class_num).to(device)
@@ -43,7 +42,7 @@ for epoch in range(Epochs):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = Student(inputs)
-        loss = Distillation.loss_function(outputs, targets)
+        loss = F.cross_entropy(outputs[3], targets, label_smoothing=0.1)
         loss.backward()
         optimizer.step()
         val_loss += loss.item()

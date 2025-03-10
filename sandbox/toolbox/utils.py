@@ -24,12 +24,10 @@ def get_names(data_name, student_name, teacher_name=None, distillation_name=None
             max_folder_num += 1
         else:
             max_folder_num = 1
-    if not scan:
-        print(f'{scan=}')
         (experiment_folder / str(max_folder_num)).mkdir()
-    path = experiment_folder / str(max_folder_num)
-    print(f"Using path: {path}")
-    return experiment_name, max_folder_num, model_name, path
+        path = experiment_folder / str(max_folder_num)
+        print(f"Using path: {path}")
+        return experiment_name, max_folder_num, model_name, path
 
 
 import matplotlib.pyplot as plt
@@ -127,9 +125,9 @@ def get_settings():
     args = parse_args()
     settings = {
         'Epochs': args.epochs,
-        'Data': DATASETS[args.data].__name__, 
-        'Student': MODELS[args.student].__name__,  
-        'Teacher': MODELS[args.teacher].__name__, 
+        'Data': DATASETS[args.data], 
+        'Student': MODELS[args.student],  
+        'Teacher': MODELS[args.teacher], 
         'experiment_id': args.experiment_id
     }
     pprint(settings)

@@ -1,5 +1,4 @@
 from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
-from sandbox.toolbox.loss_functions import Factor_Transfer_KD
 from sandbox.toolbox.data_loader import Cifar10, Cifar100
 
 from sandbox.toolbox.factor_transfer_components import Paraphraser, Translator

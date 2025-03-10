@@ -1,10 +1,10 @@
 from sandbox.toolbox.models import ResNet112, ResNet56, ResNet20, ResNetBaby
-from sandbox.toolbox.loss_functions import Logits_KD
 from sandbox.toolbox.data_loader import Cifar10, Cifar100
 from sandbox.toolbox.utils import get_names, plot_the_things, evaluate_model, get_settings
 
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 import pickle
 
 device = 'cuda'
@@ -20,7 +20,6 @@ expirement_id = settings['experiment_id']
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
-Distillation = Logits_KD()
 
 trainloader, testloader = Data.trainloader, Data.testloader
 
@@ -29,7 +28,7 @@ Teacher = Teacher(Data.class_num).to(device)
 checkpoint = torch.load(f'models/{Data.name}_{Teacher.model_type}.pth', weights_only=True)
 Teacher.load_state_dict(checkpoint['weights']) 
 
-experiment_name, experiment_id, model_name, path = get_names(Data.name, Student.model_type, Teacher.model_type, Distillation.name, expirement_id) 
+experiment_name, experiment_id, model_name, path = get_names(Data.name, Student.model_type, Teacher.model_type, 'kd', expirement_id) 
 
 optimizer = optim.SGD(Student.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=Epochs)
@@ -39,6 +38,18 @@ train_acc = []
 test_loss = []
 test_acc = []
 max_acc = 0
+
+def logits_kd(student_outputs, teacher_outputs, targets):
+    T = 2.0
+    alpha = 0.9
+    soft_targets = F.kl_div(
+        F.log_softmax(student_outputs[3] / T, dim=1),
+        F.softmax(teacher_outputs[3] / T, dim=1),
+        reduction='batchmean'
+    ) * (T * T)
+    
+    hard_targets = F.cross_entropy(student_outputs[3], targets)
+    return alpha * soft_targets + (1 - alpha) * hard_targets
 
 for epoch in range(Epochs):
     print(f'{epoch=}')
@@ -51,7 +62,7 @@ for epoch in range(Epochs):
         outputs = Student(inputs)
         with torch.no_grad():
             outputs_teacher = Teacher(inputs)
-        loss = Distillation.loss_function(outputs, outputs_teacher, targets)
+        loss = logits_kd(outputs, outputs_teacher, targets)
         loss.backward()
         optimizer.step()
         val_loss += loss.item()

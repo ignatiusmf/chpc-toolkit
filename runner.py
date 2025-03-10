@@ -12,8 +12,14 @@ def generate_pbs_script(
     experiment_id=None
 ):
 
-    python_file_path = f'/mnt/lustre/users/iferreira/chpc-toolkit/train_{distillation}.py' 
+    if distillation:
+        python_file_path = f'/mnt/lustre/users/iferreira/chpc-toolkit/train_{distillation}.py' 
+    else:
+        python_file_path = f'/mnt/lustre/users/iferreira/chpc-toolkit/train.py' 
     
+    experiment_name, experiment_id, _, path = get_names(data,student,teacher,distillation,experiment_id)
+
+
     python_cmd = f"python {python_file_path}"
     python_cmd += f" --epochs {epochs}"
     python_cmd += f" --data {data}"
@@ -25,14 +31,12 @@ def generate_pbs_script(
 
     print(python_cmd)
 
-    experiment_name, experiment_id, _, path = get_names(data,student,teacher,distillation,scan=True)
     new_path = str(path).replace("\\","/")
     output_log = f'/mnt/lustre/users/iferreira/chpc-toolkit/{new_path}/logs'
     error_log = f'/mnt/lustre/users/iferreira/chpc-toolkit/{new_path}/errors'
 
     job_name = f'{experiment_name.replace("/","_")}_{experiment_id}'
 
-    return
     pbs_script = f"""#!/bin/sh
 #PBS -N {job_name}
 #PBS -q gpu_1
