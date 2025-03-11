@@ -25,7 +25,6 @@ expirement_id = settings['experiment_id']
 
 ################## INITIALIZING THE THINGS ######################
 Data = Data()
-Distillation = Factor_Transfer_KD()
 
 trainloader, testloader = Data.trainloader, Data.testloader
 
@@ -34,7 +33,7 @@ Teacher = Teacher(Data.class_num).to(device)
 checkpoint = torch.load(f'models/{Data.name}_{Teacher.model_type}.pth', weights_only=True)
 Teacher.load_state_dict(checkpoint['weights'])
 
-experiment_name, experiment_id, model_name, path = get_names(Data.name, Student.model_type, Teacher.model_type, Distillation.name, expirement_id) 
+experiment_name, experiment_id, model_name, path = get_names(Data.name, Student.model_type, Teacher.model_type, 'ft', expirement_id) 
 
 optimizer = optim.SGD(Student.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=Epochs)

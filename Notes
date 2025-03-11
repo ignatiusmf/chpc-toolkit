@@ -21,5 +21,7 @@
 
 
 
-# MAAK N EXPERIMENT RUNNER
-# EK SOEK DIE LOGS VAN DIE JOB IN DIE ACTUAL EXPERIMENT FOLDER
+
+
+# TODO 
+implement top 1 and top 5 classification error rate
