@@ -145,6 +145,7 @@ for epoch in range(Epochs):
 
     plot_the_things(train_loss, test_loss, train_acc, test_acc, experiment_name, expirement_id, path)
 
+torch.save({'weights': Translator.state_dict()}, f'{path}/translator.pth')
 logs = {
     'train_loss': train_loss,
     'train_acc': train_acc,

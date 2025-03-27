@@ -46,6 +46,9 @@ class ResNet_simple(nn.Module):
 
         self.model_type = model_type
 
+    def __repr__(self):
+        return self.model_type
+
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
@@ -72,20 +75,20 @@ class ResNet_simple(nn.Module):
 
 def ResNet112(num_classes=10,model_type='ResNet112'):
     model = ResNet_simple(BasicBlock, [18,18,18],num_classes=num_classes,model_type=model_type)
-    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
+    # print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model
 
 def ResNet56(num_classes=10,model_type='ResNet56'):
     model = ResNet_simple(BasicBlock, [9,9,9],num_classes=num_classes,model_type=model_type)
-    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
+    # print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model
 
 def ResNet20(num_classes=10,model_type='ResNet20'):
     model = ResNet_simple(BasicBlock, [3,3,3],num_classes=num_classes,model_type=model_type)
-    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
+    # print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model
 
 def ResNetBaby(num_classes=10,model_type='ResNetBaby'):
     model = ResNet_simple(BasicBlock, [1,1,1],num_classes=num_classes,model_type=model_type)
-    print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
+    # print(f"Total parameters for {model_type}: {sum(p.numel() for p in model.parameters()):,}")
     return model

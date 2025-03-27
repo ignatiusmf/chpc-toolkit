@@ -1,5 +1,6 @@
 data/*
 logs/*
-experiments/*
+experiments*/*
 models/*
 *__pycache__*
+*xlsx
