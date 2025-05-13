@@ -2,6 +2,13 @@ import subprocess
 import os
 from sandbox.toolbox.utils import get_names
 
+
+
+def create_python_cmd():
+
+
+
+
 def generate_pbs_script(
     walltime="02:00:00",
     epochs=150,

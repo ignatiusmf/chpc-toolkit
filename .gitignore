@@ -4,3 +4,8 @@ experiments*/*
 models/*
 *__pycache__*
 *xlsx
+translator.pth
+paraphraser.pth
+sample.pt
+sandbox/metric_matrix_plot.png
+sandbox/sample_td.pt
